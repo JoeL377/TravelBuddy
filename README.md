@@ -30,7 +30,9 @@ The repo includes a Render Blueprint (`render.yaml`):
 
 Render builds it, gives you an `https://….onrender.com` link (HTTPS, so location works on phones), and keeps the database on a 1 GB disk. The Starter plan plus the disk is about $7.25 a month, plus your Claude API usage. Pushing to the repo redeploys.
 
-For container hosts (Fly.io, Railway, Cloud Run), use the `Dockerfile` and mount a volume at `/data` so stories and questions survive restarts.
+**Railway:** New Project › Deploy from GitHub repo, pick this repo. Railway builds the `Dockerfile` and uses `railway.json` for the health check. Then right-click the service › **Attach volume** with mount path `/data`, add the variables `ANTHROPIC_API_KEY` and `CONTACT_EMAIL`, and under Settings › Networking click **Generate Domain**.
+
+For other container hosts (Fly.io, Cloud Run), use the `Dockerfile` and mount a volume at `/data` so stories and questions survive restarts.
 
 ## How it works
 
