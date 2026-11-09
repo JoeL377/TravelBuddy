@@ -228,17 +228,18 @@ function renderExplore() {
         <div class="play"><span class="pc">${icon("play", "sm")}</span>Watch the story · 2 min</div></div>
     </div></button>`;
 
-  $("lmCount").textContent = lms.length ? `${lms.length} within 2 km` : "";
+  const far = Math.max(0, ...lms.map((l) => l.distance || 0));
+  $("lmCount").textContent = lms.length ? `${lms.length} within ${far < 1000 ? "1 km" : `${Math.ceil(far / 1000)} km`}` : "";
   $("rail").innerHTML = lms.length
     ? lms.map((l, i) => listingCard(l, i)).join("")
-    : `<div class="empty" style="padding:24px 0;width:100%"><div class="big">Off the map</div>No famous landmarks within 2 km. Ask the guide what's worth seeing.</div>`;
+    : `<div class="empty" style="padding:24px 0;width:100%"><div class="big">Off the map</div>No famous landmarks nearby. Ask the guide what's worth seeing.</div>`;
   $("rail").classList.add("stagger");
 }
 
 function listingCard(l, i, extra = "") {
   return `<button class="listing ${extra}" data-landmark="${i}">
     <div class="photo"><img src="${esc(photo(l))}" alt="" loading="lazy">
-      ${i === 0 && l.distance != null ? `<span class="tag">Closest</span>` : ""}
+      ${i === 0 && !extra ? `<span class="tag">Top pick</span>` : ""}
       <span class="heart ${isSaved(l.title) ? "on" : ""}" data-save="${i}" role="button" aria-label="Save">${icon("heart")}</span>
     </div>
     <div class="meta">
@@ -280,7 +281,7 @@ function toggleSave(l, el) {
 function renderSaved() {
   const list = saved();
   $("savedGrid").innerHTML = list.length
-    ? `<div class="grid stagger">${list.map((l, i) => listingCard(l, i).replace(`data-landmark="${i}"`, `data-saved="${i}"`).replace(`data-save="${i}"`, `data-unsave="${i}"`).replace("Closest", esc(l.savedFrom || ""))).join("")}</div>`
+    ? `<div class="grid stagger">${list.map((l, i) => listingCard(l, i).replace(`data-landmark="${i}"`, `data-saved="${i}"`).replace(`data-save="${i}"`, `data-unsave="${i}"`).replace("Top pick", esc(l.savedFrom || ""))).join("")}</div>`
     : `<div class="empty"><div class="big">Nothing saved yet</div>Tap the ${icon("heart", "sm")} on any landmark to keep it for later.</div>`;
 }
 $("savedGrid").addEventListener("click", (e) => {

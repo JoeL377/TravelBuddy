@@ -77,12 +77,13 @@ function locationContext(place) {
     `Coordinates: ${place.lat.toFixed(5)}, ${place.lon.toFixed(5)}`,
   ];
   if (place.landmarks.length) {
-    lines.push("", "Nearby landmarks (from Wikipedia, nearest first):");
+    lines.push("", "Nearby landmarks (from Wikipedia, most notable first; tourist-irrelevant entries like companies, schools and stations already removed):");
     for (const l of place.landmarks) {
-      lines.push(`- ${l.title} (${l.distance} m away): ${l.extract || "no summary available"}`);
+      const away = l.distance == null ? "" : l.distance < 1000 ? `${l.distance} m away` : `${(l.distance / 1000).toFixed(1)} km away`;
+      lines.push(`- ${l.title} (${[l.description, away].filter(Boolean).join(", ")}): ${l.extract || "no summary available"}`);
     }
   } else {
-    lines.push("", "No Wikipedia landmarks were found within walking distance.");
+    lines.push("", "No notable Wikipedia landmarks were found within 10 km.");
   }
   return lines.join("\n");
 }
