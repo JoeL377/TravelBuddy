@@ -63,44 +63,117 @@ async function reverseGeocode(lat, lon) {
   };
 }
 
+// How we pick landmarks:
+// 1. Pull up to 50 geotagged Wikipedia articles within 10 km (the API maximum), so
+//    sparse suburbs still reach real sights instead of stopping at the nearest 15.
+// 2. Drop things a tour guide wouldn't point at, using each article's short
+//    description: companies, schools, transit stops, roads, and the town or
+//    neighborhood articles themselves (the area tour already covers those).
+// 3. Rank by how notable the article is (Wikipedia page views over 30 days),
+//    nudged up for sightseeing types (museums, parks, historic sites) and
+//    discounted by walking distance, then keep the best 10.
+const MAX_LANDMARKS = 10;
+const SEARCH_RADIUS_M = 10000;
+
+// Matched against the Wikipedia short description, e.g. "American video game company".
+const SKIP = [
+  /\b(company|corporation|conglomerate|manufacturer|developer|subsidiary|startup|brand|retailer|chain|franchise|bank|firm|publisher|software|website|newspaper|magazine|record label)\b/i,
+  /\b(school district|school|elementary|kindergarten|preschool|academy)\b/i,
+  /\b(station|stop|bus route|bus line|transit|interchange|exit|freeway|highway|expressway|road|street|avenue|boulevard|route)\b/i,
+  /\b(radio|television|tv) (station|channel|network)\b/i,
+  /\b(hospital|clinic|medical center|fire department|police department|post office|water district|sanitary district|school board)\b/i,
+  /^(city|town|village|hamlet|borough|neighbou?rhood|suburb|census[- ]designated place|unincorporated community|human settlement|county|district|area|region|locality|community|place|municipality|ward|quarter)\b/i,
+  /\b(neighbou?rhood|census[- ]designated place|unincorporated community) (in|of)\b/i,
+  /\b(person|politician|businessman|businesswoman|athlete|footballer|actor|actress|singer|american (man|woman))\b/i,
+];
+// A historic building can still be a school or station; keep those.
+const HISTORIC = /\b(historic|national register|landmark|heritage|former|ruins?|monument)\b/i;
+const SIGHTS = /\b(museum|gallery|park|garden|arboretum|zoo|aquarium|beach|lake|lagoon|marsh|wetland|preserve|trail|hill|mountain|peak|island|bridge|pier|lighthouse|tower|castle|palace|fort|mission|church|cathedral|basilica|chapel|temple|shrine|mosque|synagogue|monastery|abbey|monument|memorial|statue|plaza|square|theat(er|re)|opera|concert hall|stadium|racetrack|arena|library|university|college|observatory|mansion|estate|house|historic|landmark|national register|heritage|ruins?|cemetery|market|waterfront)\b/i;
+const MEH = /\b(shopping (mall|center|centre)|mall|office|building|apartment|hotel|restaurant|store|supermarket|golf course|sports? (facility|complex))\b/i;
+
+export function landmarkScore({ description = "", views = null, distance = null }) {
+  const desc = description || "";
+  if (SKIP.some((re) => re.test(desc)) && !HISTORIC.test(desc)) return null;
+  // Page views per day on a log scale: 1/day ~0.3, 10/day 1, 100/day 2, 1000/day 3.
+  // Missing view data counts as a modest 10/day rather than zero.
+  let score = Math.log10((views ?? 300) / 30 + 1);
+  if (SIGHTS.test(desc)) score += 0.8;
+  else if (MEH.test(desc)) score -= 0.4;
+  // Halve the appeal at ~2.5 km; nearby still wins between equally famous places.
+  const km = (distance ?? 2500) / 1000;
+  return score / (1 + (km / 2.5) ** 2);
+}
+
 async function nearbyLandmarks(lat, lon) {
-  // One call: geosearch generator + intro extract + thumbnail + coordinates.
+  // Call 1: candidates with short descriptions, page views and coordinates.
   const params = new URLSearchParams({
     action: "query",
     format: "json",
+    formatversion: "2",
     origin: "*",
     generator: "geosearch",
     ggscoord: `${lat}|${lon}`,
-    ggsradius: "2000",
-    ggslimit: "15",
-    prop: "extracts|pageimages|coordinates|info",
+    ggsradius: String(SEARCH_RADIUS_M),
+    ggslimit: "50",
+    prop: "coordinates|description|pageviews",
+    colimit: "max",
+    pvipdays: "30",
+  });
+  const d = await getJson(`https://en.wikipedia.org/w/api.php?${params}`);
+  const ranked = (d.query?.pages || [])
+    .map((p) => {
+      const c = p.coordinates?.[0];
+      const daily = p.pageviews ? Object.values(p.pageviews).filter((v) => v != null) : [];
+      const distance = c ? Math.round(dist(lat, lon, c.lat, c.lon)) : null;
+      const cand = {
+        pageid: p.pageid,
+        title: p.title,
+        description: p.description || "",
+        lat: c?.lat ?? null,
+        lon: c?.lon ?? null,
+        distance,
+        views: daily.length ? daily.reduce((a, b) => a + b, 0) : null,
+      };
+      return { ...cand, score: landmarkScore(cand) };
+    })
+    .filter((c) => c.score != null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_LANDMARKS);
+  if (!ranked.length) return [];
+
+  // Call 2: intro text, photo and URL for just the winners.
+  const details = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    origin: "*",
+    pageids: ranked.map((c) => c.pageid).join("|"),
+    prop: "extracts|pageimages|info",
     inprop: "url",
     exintro: "1",
     explaintext: "1",
     exsentences: "3",
-    exlimit: "15",
+    exlimit: "max",
     piprop: "thumbnail",
     pithumbsize: "900",
-    pilimit: "15",
+    pilimit: "max",
   });
-  const d = await getJson(`https://en.wikipedia.org/w/api.php?${params}`);
-  const pages = Object.values(d.query?.pages || {});
-  return pages
-    .map((p) => {
-      const c = p.coordinates?.[0];
-      return {
-        pageid: p.pageid,
-        title: p.title,
-        extract: p.extract || "",
-        thumbnail: p.thumbnail?.source || null,
-        url: p.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
-        lat: c?.lat ?? null,
-        lon: c?.lon ?? null,
-        distance: c ? Math.round(dist(lat, lon, c.lat, c.lon)) : null,
-      };
-    })
-    .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9))
-    .slice(0, 10);
+  const byId = new Map();
+  try {
+    const dd = await getJson(`https://en.wikipedia.org/w/api.php?${details}`);
+    for (const p of dd.query?.pages || []) byId.set(p.pageid, p);
+  } catch (err) {
+    console.error("landmark details lookup failed", err.message);
+  }
+  return ranked.map(({ score, views, ...c }) => {
+    const p = byId.get(c.pageid) || {};
+    return {
+      ...c,
+      extract: p.extract || c.description || "",
+      thumbnail: p.thumbnail?.source || null,
+      url: p.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(c.title.replace(/ /g, "_"))}`,
+    };
+  });
 }
 
 function dist(lat1, lon1, lat2, lon2) {
