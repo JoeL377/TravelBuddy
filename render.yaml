@@ -21,5 +21,7 @@ services:
         value: /var/data/travelbuddy.db
       - key: TRUST_PROXY
         value: "1"
-      - key: CLAUDE_MODEL
+      - key: CLAUDE_STORY_MODEL
         value: claude-opus-5-5
+      - key: CLAUDE_ANSWER_MODEL
+        value: claude-sonnet-5-5

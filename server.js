@@ -13,7 +13,10 @@ import { describePlace, searchPlace } from "./places.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
-const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
+// Stories are written once and shown to everyone, so they get the stronger model.
+// Follow-up answers are paid on every question, so they use a cheaper one.
+const STORY_MODEL = process.env.CLAUDE_STORY_MODEL || process.env.CLAUDE_MODEL || "claude-opus-5-5";
+const ANSWER_MODEL = process.env.CLAUDE_ANSWER_MODEL || "claude-sonnet-5-5";
 const EFFORT = process.env.CLAUDE_EFFORT || "low"; // narration is conversational; keep it snappy
 const MOCK = process.env.MOCK === "1" || !hasClaudeCredentials();
 
@@ -35,7 +38,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
 
 // For the host's health check.
-app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", model: MODEL }));
+app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL }));
 app.use(express.json({ limit: "32kb" }));
 
 // --- Abuse limits ---------------------------------------------------------
@@ -99,11 +102,11 @@ function openSse(res) {
 }
 
 // Streams Claude's answer as `text` events and resolves with the full text.
-async function streamClaude({ system, prompt, send, maxTokens = 4000 }) {
+async function streamClaude({ model, system, prompt, send, maxTokens = 4000 }) {
   if (MOCK) return mockStream(prompt, send);
 
   const stream = client.beta.messages.stream({
-    model: MODEL,
+    model,
     max_tokens: maxTokens,
     output_config: { effort: EFFORT },
     // If a safety classifier declines, let the API re-run on a fallback model.
@@ -208,9 +211,9 @@ async function serveStory(req, res, { key, kind, label, prompt, maxTokens }) {
       if (event === "text") job.text += data.text;
       for (const s of job.subscribers) s(event, data);
     };
-    job.done = streamClaude({ system: GUIDE_SYSTEM, prompt, send: broadcast, maxTokens })
+    job.done = streamClaude({ model: STORY_MODEL, system: GUIDE_SYSTEM, prompt, send: broadcast, maxTokens })
       .then((out) => {
-        if (out.ok) store.putStory({ key, kind, label, text: out.text, model: MOCK ? "mock" : MODEL, hits: job.joiners });
+        if (out.ok) store.putStory({ key, kind, label, text: out.text, model: MOCK ? "mock" : STORY_MODEL, hits: job.joiners });
         return out.ok;
       })
       .finally(() => inflight.delete(key));
@@ -231,7 +234,7 @@ async function serveStory(req, res, { key, kind, label, prompt, maxTokens }) {
 function friendlyError(err) {
   const status = err?.status;
   if (status === 401) return "The guide can't speak: the server's Anthropic API key is invalid. Check ANTHROPIC_API_KEY in your host's settings.";
-  if (status === 403 || status === 404) return `The guide can't speak: this API key can't use the model "${MODEL}". Set CLAUDE_MODEL to a model your account has.`;
+  if (status === 403 || status === 404) return `The guide can't speak: this API key can't use one of the models (${STORY_MODEL}, ${ANSWER_MODEL}). Set CLAUDE_STORY_MODEL / CLAUDE_ANSWER_MODEL to models your account has.`;
   if (status === 400 && /credit|billing|balance/i.test(err?.message || "")) return "The guide can't speak: the Anthropic account is out of credits.";
   if (status === 429) return "The guide is busy right now (rate limited). Try again in a minute.";
   return "The guide lost its voice for a moment. Please try again.";
@@ -358,7 +361,7 @@ The traveler asks a follow-up question about this area${topic ? `, specifically 
 QUESTION: ${question}
 
 Answer as their guide for a phone screen: start with a one-sentence direct answer in **bold**, then at most 2 short sentences of color or a tip. Under 70 words total, no lists.`;
-    const { text: answer } = await streamClaude({ system: GUIDE_SYSTEM, prompt, send, maxTokens: 2000 });
+    const { text: answer } = await streamClaude({ model: ANSWER_MODEL, system: GUIDE_SYSTEM, prompt, send, maxTokens: 2000 });
     const hidden = !(await isFitToShare(question));
     const saved = store.addQuestion({ ...c, placeLabel: place.label, author, question, answer, topic, hidden });
     send("saved", saved);

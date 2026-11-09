@@ -49,7 +49,8 @@ For other container hosts (Fly.io, Cloud Run), use the `Dockerfile` and mount a 
 | Variable | Default | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | — | Required for real narration. |
-| `CLAUDE_MODEL` | `claude-opus-5-5` | Any current Claude model, e.g. `claude-haiku-5-5` for lower cost. |
+| `CLAUDE_STORY_MODEL` | `claude-opus-5-5` | Writes the area tours and landmark stories. Each is paid once, then stored. (`CLAUDE_MODEL` still works as an older name for this.) |
+| `CLAUDE_ANSWER_MODEL` | `claude-sonnet-5-5` | Answers follow-up questions, paid on every question. |
 | `CLAUDE_EFFORT` | `low` | `low`/`medium`/`high`; higher is slower and richer. |
 | `ASK_PER_HOUR` | `20` | Questions one traveler can ask per hour. |
 | `GENERATE_PER_HOUR` | `15` | New (not yet stored) stories one traveler can trigger per hour. Replaying stored stories is unlimited. |
