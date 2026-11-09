@@ -179,6 +179,8 @@ function renderExploreSkeleton() {
   $("pillSub").textContent = "Looking for stories nearby";
   $("storiesRow").innerHTML = Array.from({ length: 5 }, () => `<div class="story-bubble"><div class="sk" style="width:70px;height:70px;border-radius:50%"></div><div class="sk" style="width:48px;height:10px"></div></div>`).join("");
   $("heroWrap").innerHTML = `<div class="hero"><div class="photo sk"></div></div>`;
+  $("guide").classList.remove("open");
+  $("guide").innerHTML = [80, 95, 60].map((w) => `<div class="sk sk-line" style="width:${w}%"></div>`).join("");
   $("rail").innerHTML = Array.from({ length: 2 }, () => `<div class="listing"><div class="photo sk"></div><div class="sk" style="height:14px;width:70%;margin-top:12px"></div><div class="sk" style="height:12px;width:40%;margin-top:8px"></div></div>`).join("");
   $("lmCount").textContent = "";
 }
@@ -317,14 +319,50 @@ function fetchStory(key, url) {
         if (ev === "text") { text += data.text; st.cards = parseCards(text); }
         if (ev === "error") st.error = data.message;
         if (ev === "meta") st.meta = data;
+        onStoryUpdate(key);
       });
     } catch (err) { st.error = err.message || "Couldn't load this story."; }
     st.done = true;
+    onStoryUpdate(key);
     if (st.error && !st.cards.length) S.stories.delete(key);
   })();
   return st;
 }
-function prefetchTour() { if (S.here) fetchStory(tourKey(), storyUrl("tour")); }
+function prefetchTour() { if (S.here) { fetchStory(tourKey(), storyUrl("tour")); renderGuide(); } }
+
+// ---------- your guide (tour narration shown right on Explore) ----------
+const GUIDE_PREVIEW = 3;
+function onStoryUpdate(key) {
+  if (S.here && key === tourKey()) renderGuide();
+}
+function renderGuide() {
+  const el = $("guide");
+  if (!S.here) return;
+  const st = S.stories.get(tourKey());
+  if (!st) { el.innerHTML = ""; return; }
+  if (!st.cards.length) {
+    el.innerHTML = st.error
+      ? `<div class="err">${esc(st.error)}<br><button data-guide-retry>Try again</button></div>`
+      : `<div class="note">Your guide is putting together the story of this area…</div>` +
+        [80, 95, 60].map((w) => `<div class="sk sk-line" style="width:${w}%"></div>`).join("");
+    return;
+  }
+  const open = el.classList.contains("open");
+  const cards = st.cards.map((c, i) => `<article class="card ${i >= GUIDE_PREVIEW ? "hidden-card" : ""}">
+      <div class="em" aria-hidden="true">${esc(c.emoji)}</div>
+      <div><h3>${esc(c.title)}</h3><p>${inline(c.body)}${!st.done && i === st.cards.length - 1 ? '<span class="cursor"></span>' : ""}</p></div>
+    </article>`).join("");
+  const extra = st.cards.length - GUIDE_PREVIEW;
+  const more = extra > 0 ? `<button class="more" data-guide-more>${open ? "Show less" : `Keep reading (${extra} more)`}</button>` : "";
+  const note = st.meta?.demo ? `<div class="note">Demo mode: the server has no Anthropic API key, so this is placeholder text.</div>`
+    : st.error ? `<div class="note">${esc(st.error)}</div>` : "";
+  el.innerHTML = cards + more + note;
+}
+$("guide").addEventListener("click", (e) => {
+  if (e.target.closest("[data-guide-more]")) { $("guide").classList.toggle("open"); renderGuide(); }
+  if (e.target.closest("[data-guide-retry]")) { S.stories.delete(tourKey()); prefetchTour(); }
+});
+$("guidePlay").addEventListener("click", () => { if (S.place) openStory({ kind: "tour" }); });
 
 function openStory({ kind, landmark }) {
   const key = kind === "tour" ? tourKey() : lmKey(landmark);

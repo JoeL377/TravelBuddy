@@ -1,6 +1,6 @@
 // Caches the app shell so TravelBuddy opens instantly and installs like an app.
 // API calls always go to the network (tours and Q&As must be fresh).
-const CACHE = "travelbuddy-v4";
+const CACHE = "travelbuddy-v5";
 const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/art.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png", "/fonts/PlusJakartaSans-normal.woff2", "/fonts/InstrumentSerif-normal.woff2", "/fonts/InstrumentSerif-italic.woff2"];
 
 self.addEventListener("install", (e) => {

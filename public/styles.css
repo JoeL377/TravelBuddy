@@ -345,3 +345,17 @@ img { display: block; }
   .tabbar, .composer, .footer-bar { max-width: 520px; margin: 0 auto; }
   .listing { flex-basis: 60%; }
 }
+
+/* ---------- Your guide: the tour narration, readable right on Explore ---------- */
+.guide { margin: 0 16px; display: grid; gap: 10px; }
+.guide .card { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.guide .card .em { font-size: 22px; line-height: 1.2; flex: none; }
+.guide .card h3 { margin: 0 0 4px; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.guide .card p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
+.guide .card.hidden-card { display: none; }
+.guide.open .card.hidden-card { display: flex; }
+.guide .more { justify-self: start; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; padding: 4px 0; }
+.guide .note { font-size: 13px; color: var(--ink-2); padding: 0 2px; }
+.guide .err { padding: 14px 16px; border-radius: 16px; background: var(--soft); font-size: 14px; line-height: 1.45; }
+.guide .err button { margin-top: 8px; font-weight: 600; text-decoration: underline; }
+.guide .sk-line { height: 14px; border-radius: 6px; }

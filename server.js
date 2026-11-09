@@ -35,7 +35,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
 
 // For the host's health check.
-app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live" }));
+app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", model: MODEL }));
 app.use(express.json({ limit: "32kb" }));
 
 // --- Abuse limits ---------------------------------------------------------
@@ -181,7 +181,7 @@ async function serveStory(req, res, { key, kind, label, prompt, maxTokens }) {
   const cached = store.getStory(key, STORY_TTL_DAYS);
   if (cached) {
     const hits = store.countHit(key);
-    send("meta", { cached: true, hits, createdAt: cached.createdAt });
+    send("meta", { cached: true, hits, createdAt: cached.createdAt, demo: MOCK });
     send("text", { text: cached.text });
     send("done", {});
     return res.end();
@@ -194,12 +194,12 @@ async function serveStory(req, res, { key, kind, label, prompt, maxTokens }) {
   }
   if (job) {
     job.joiners++;
-    send("meta", { cached: false, joined: true, hits: job.joiners });
+    send("meta", { cached: false, joined: true, hits: job.joiners, demo: MOCK });
     if (job.text) send("text", { text: job.text });
     job.subscribers.add(send);
   } else {
     console.log(`generating ${kind} story for ${key}`);
-    send("meta", { cached: false, hits: 1 });
+    send("meta", { cached: false, hits: 1, demo: MOCK });
     // Subscribe before generation starts so no early chunk is missed.
     job = { text: "", subscribers: new Set([send]), joiners: 1 };
     inflight.set(key, job);
@@ -220,10 +220,20 @@ async function serveStory(req, res, { key, kind, label, prompt, maxTokens }) {
     send("done", {});
   } catch (err) {
     console.error(`${kind} story failed`, err);
-    send("error", { message: "The guide lost its voice for a moment. Please try again." });
+    send("error", { message: friendlyError(err) });
   }
   job.subscribers.delete(send);
   res.end();
+}
+
+// Turns an API failure into something the app owner can act on.
+function friendlyError(err) {
+  const status = err?.status;
+  if (status === 401) return "The guide can't speak: the server's Anthropic API key is invalid. Check ANTHROPIC_API_KEY in your host's settings.";
+  if (status === 403 || status === 404) return `The guide can't speak: this API key can't use the model "${MODEL}". Set CLAUDE_MODEL to a model your account has.`;
+  if (status === 400 && /credit|billing|balance/i.test(err?.message || "")) return "The guide can't speak: the Anthropic account is out of credits.";
+  if (status === 429) return "The guide is busy right now (rate limited). Try again in a minute.";
+  return "The guide lost its voice for a moment. Please try again.";
 }
 
 // --- Moderation -----------------------------------------------------------
@@ -354,7 +364,7 @@ Answer as their guide for a phone screen: start with a one-sentence direct answe
     send("done", {});
   } catch (err) {
     console.error("ask failed", err);
-    send("error", { message: "Couldn't answer that right now. Please try again." });
+    send("error", { message: friendlyError(err) });
   }
   res.end();
 });
