@@ -1,0 +1,19 @@
+{
+  "name": "travelbuddy",
+  "version": "0.1.0",
+  "description": "A virtual tour guide: history and landmarks wherever you are.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "demo": "MOCK=1 node --disable-warning=ExperimentalWarning server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "express": "^5.3.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  }
+}

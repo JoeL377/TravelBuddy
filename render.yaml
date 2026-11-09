@@ -1,0 +1,25 @@
+# Render Blueprint: New > Blueprint in the Render dashboard, pick this repo.
+# Render asks for the values marked sync: false when you create it.
+services:
+  - type: web
+    name: travelbuddy
+    runtime: node
+    plan: starter            # a persistent disk needs a paid plan; SQLite lives on it
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CONTACT_EMAIL     # shown to OpenStreetMap so they can reach you
+        sync: false
+      - key: DB_PATH
+        value: /var/data/travelbuddy.db
+      - key: TRUST_PROXY
+        value: "1"
+      - key: CLAUDE_MODEL
+        value: claude-opus-5-5
