@@ -33,13 +33,20 @@ async function lookup(lat, lon) {
   const areaImage = geo?.area ? await cityImage(geo.area, geo.state).catch(() => null) : null;
   // Wikimedia asks API clients not to fire requests in parallel (and answers
   // 429 when they do), so Commons lookups run one after another.
-  const areaPhotos = await commonsPhotos(lat, lon, { radius: 1500, limit: 40, prefer: geo?.area }).catch((err) => {
-    console.error("commons area photos failed", err.message);
-    return [];
-  });
-  // Landmarks whose article has no free lead photo: borrow a Commons photo
-  // taken right at the landmark, preferring one whose file name mentions it.
-  for (const l of landmarks.filter((x) => !x.thumbnail && x.lat != null)) {
+  // For the top landmarks, fetch Commons photos taken at each one: the first
+  // fills a missing thumbnail, and ones whose file name names the landmark
+  // become tour story-card photos, so every card shows a real sight.
+  const sightPhotos = [];
+  for (const l of landmarks.slice(0, 6).filter((x) => x.lat != null)) {
+    try {
+      const hits = await commonsPhotos(l.lat, l.lon, { radius: 200, limit: 20, prefer: l.title, strict: true, meta: true });
+      if (!l.thumbnail && hits[0]) l.thumbnail = hits[0].url;
+      sightPhotos.push(...hits.filter((h) => h.named && h.url !== l.thumbnail).slice(0, 2).map((h) => h.url));
+    } catch (err) {
+      console.error("commons landmark photo failed", l.title, err.message);
+    }
+  }
+  for (const l of landmarks.slice(6).filter((x) => !x.thumbnail && x.lat != null)) {
     try {
       const [hit] = await commonsPhotos(l.lat, l.lon, { radius: 150, limit: 10, prefer: l.title, strict: true });
       if (hit) l.thumbnail = hit;
@@ -47,12 +54,19 @@ async function lookup(lat, lon) {
       console.error("commons landmark photo failed", l.title, err.message);
     }
   }
+  // Only if the sights gave us too little, fall back to anything shot nearby.
+  const nearby = sightPhotos.length >= 4 ? [] : await commonsPhotos(lat, lon, { radius: 1500, limit: 40, prefer: geo?.area }).catch((err) => {
+    console.error("commons area photos failed", err.message);
+    return [];
+  });
+  const used = new Set([areaImage, ...landmarks.map((l) => l.thumbnail)]);
+  const areaPhotos = [...new Set([...sightPhotos, ...nearby])].filter((u) => !used.has(u));
   return {
     label: geo?.label || landmarks[0]?.title || "Somewhere interesting",
     // Lead photo of the town's own Wikipedia article, for the tour cover.
     areaImage,
     // More photos taken around here (Wikimedia Commons), for tour story cards.
-    areaPhotos: areaPhotos.filter((u) => u !== areaImage && !landmarks.some((l) => l.thumbnail === u)).slice(0, 8),
+    areaPhotos: areaPhotos.slice(0, 8),
     area: geo?.area || null,
     // Everyone in the same neighborhood shares one generated tour.
     areaKey: geo?.areaKey || gridKey(lat, lon),
@@ -214,7 +228,7 @@ export function photoUrl(thumb) {
 // Skip file names that say so; a tour should show the place, not a lobby.
 const NOT_SIGHTSEEING = /(headquarters|\bhq\b|office|corporate|campus|brewing|company|inc\b|portrait|headshot|\bwith\b|speaking|speech|panel|conference|meeting|interview|selfie|screenshot|interior|lobby|parking|construction|\bsign\b|receipt|menu)/i;
 
-async function commonsPhotos(lat, lon, { radius, limit, prefer = "", strict = false }) {
+async function commonsPhotos(lat, lon, { radius, limit, prefer = "", strict = false, meta = false }) {
   const params = new URLSearchParams({
     action: "query",
     format: "json",
@@ -245,7 +259,7 @@ async function commonsPhotos(lat, lon, { radius, limit, prefer = "", strict = fa
     })
     .filter((x) => x.url && (!strict || x.named > 0 || x.d <= 60))
     .sort((a, b) => b.named - a.named || a.d - b.d)
-    .map((x) => x.url);
+    .map((x) => (meta ? x : x.url));
 }
 
 async function cityImage(city, state) {
