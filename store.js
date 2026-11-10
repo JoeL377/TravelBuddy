@@ -34,6 +34,8 @@ export function openStore(file) {
   if (!cols.includes("topic")) db.exec("ALTER TABLE questions ADD COLUMN topic TEXT");
   // v3: questions flagged by the moderation check stay private to the asker.
   if (!cols.includes("hidden")) db.exec("ALTER TABLE questions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0");
+  // v4: the app became a food guide; old travel Q&As stay in the table but aren't shown.
+  if (!cols.includes("kind")) db.exec("ALTER TABLE questions ADD COLUMN kind TEXT NOT NULL DEFAULT 'travel'");
   // One like per traveler per question (voter is a salted hash, never a raw IP).
   db.exec(`CREATE TABLE IF NOT EXISTS votes (
     question_id INTEGER NOT NULL, voter TEXT NOT NULL, PRIMARY KEY (question_id, voter)
@@ -64,11 +66,11 @@ export function openStore(file) {
   const hitStory = db.prepare(`UPDATE stories SET hits = hits + 1 WHERE key = ? RETURNING hits`);
 
   const insert = db.prepare(
-    `INSERT INTO questions (lat, lon, place_label, author, question, answer, topic, hidden)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
+    `INSERT INTO questions (lat, lon, place_label, author, question, answer, topic, hidden, kind)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'food') RETURNING *`
   );
   const inBox = db.prepare(
-    `SELECT * FROM questions WHERE hidden = 0 AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
+    `SELECT * FROM questions WHERE hidden = 0 AND kind = 'food' AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
      ORDER BY created_at DESC LIMIT 500`
   );
   const bump = db.prepare(`UPDATE questions SET upvotes = upvotes + 1 WHERE id = ? AND hidden = 0 RETURNING *`);

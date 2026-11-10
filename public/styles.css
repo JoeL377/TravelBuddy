@@ -403,3 +403,8 @@ img.ld { opacity: 1; }
 .guide .sk-line { height: 14px; border-radius: 6px; }
 /* Loading placeholders shaped like the real cards, so the page below doesn't jump when the story arrives. */
 .guide .card.ghost { display: grid; gap: 10px; min-height: 124px; align-content: center; }
+
+/* Food guide */
+.listing .t .rate { flex: none; font-weight: 600; font-size: 14px; }
+.source-note { font-size: 12px; padding: 8px 16px 0; }
+.source-note:empty { display: none; }

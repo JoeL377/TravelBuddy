@@ -3,7 +3,7 @@ import { art } from "./art.js";
 const $ = (id) => document.getElementById(id);
 const S = {
   here: null,        // { lat, lon }
-  place: null,       // { label, landmarks[] }
+  place: null,       // { label, spots[] }
   questions: [],
   stories: new Map(), // key -> { cards, done }
   tab: "explore",
@@ -24,6 +24,10 @@ const ago = (iso) => {
 const hue = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 const initials = (name) => name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 const photo = (l) => l?.thumbnail || art(l?.title || "TravelBuddy");
+// "Restaurant · Ramen", "Bakery"
+const spotKind = (l) => [l.kind, l.cuisine].filter(Boolean).join(" · ") || l.description || "";
+const openLabel = (l) => (l.openNow === true ? "Open now" : l.openNow === false ? "Closed now" : "");
+const count = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
 
 function local(key, val) {
   try {
@@ -31,7 +35,7 @@ function local(key, val) {
     localStorage.setItem(key, JSON.stringify(val));
   } catch { return null; }
 }
-const saved = () => local("tb-saved") || [];
+const saved = () => local("tb-saved-food") || [];
 const isSaved = (title) => saved().some((l) => l.title === title);
 const seen = () => new Set(local("tb-seen") || []);
 const voted = () => new Set(local("tb-voted") || []);
@@ -222,12 +226,12 @@ function startError(msg) {
   closeLayer($("search"));
   if (!$("app").hidden) return toast(msg);
   $("locateBtn").disabled = false;
-  $("locateBtn").querySelector("span").textContent = "Explore near me";
+  $("locateBtn").querySelector("span").textContent = "Find food near me";
   $("startError").textContent = msg;
   $("startError").hidden = false;
 }
 
-const IDEAS = ["Colosseum, Rome", "Shibuya Crossing, Tokyo", "Montmartre, Paris", "Brooklyn Bridge, New York", "Alfama, Lisbon"];
+const IDEAS = ["Chinatown, San Francisco", "Tsukiji, Tokyo", "Arthur Avenue, Bronx", "Mercado de San Miguel, Madrid", "Bologna, Italy"];
 function openSearch() {
   const recents = local("tb-recents") || [];
   const opt = (q, ic) => `<button class="opt" data-q="${esc(q)}"><span class="ic">${icon(ic)}</span><span><div class="t">${esc(q.split(",")[0])}</div><div class="s">${esc(q.split(",").slice(1).join(",").trim())}</div></span></button>`;
@@ -284,7 +288,7 @@ function go(lat, lon, { gps = false } = {}) {
 
 function renderExploreSkeleton() {
   $("pillTitle").textContent = "Finding you…";
-  $("pillSub").textContent = "Looking for stories nearby";
+  $("pillSub").textContent = "Looking for good food nearby";
   $("storiesRow").innerHTML = Array.from({ length: 5 }, () => `<div class="story-bubble"><div class="sk" style="width:70px;height:70px;border-radius:50%"></div><div class="sk" style="width:48px;height:10px"></div></div>`).join("");
   $("heroWrap").innerHTML = `<div class="hero"><div class="photo sk"></div></div>`;
   $("guide").classList.remove("open");
@@ -303,9 +307,9 @@ async function loadPlace() {
     renderChips();
     prefetchTour();
   } catch {
-    S.place = { label: "Somewhere interesting", landmarks: [] };
+    S.place = { label: "Somewhere tasty", spots: [] };
     renderExplore();
-    toast("Couldn't load landmarks right now.");
+    toast("Couldn't load places to eat right now.");
   }
 }
 
@@ -316,44 +320,45 @@ function placeParts() {
 
 function renderExplore() {
   const { name, region } = placeParts();
-  const lms = S.place.landmarks;
+  const lms = S.place.spots;
   $("pillTitle").textContent = name;
-  $("pillSub").textContent = [region, lms.length ? `${lms.length} landmarks` : ""].filter(Boolean).join(" · ");
-  $("askSub").textContent = `Questions from travelers near ${name}`;
+  $("pillSub").textContent = [region, lms.length ? `${lms.length} places to eat` : ""].filter(Boolean).join(" · ");
+  $("askSub").textContent = `Food questions from people near ${name}`;
 
   const seenSet = seen();
   const heroImg = S.place.areaImage || lms.find((l) => l.thumbnail)?.thumbnail || art(name);
   $("storiesRow").innerHTML = [
-    `<button class="story-bubble" data-story="tour"><div class="ring ${seenSet.has(tourKey()) ? "seen" : ""}" data-key="${esc(tourKey())}"><img src="${esc(heroImg)}" data-title="${esc(name)}" alt=""></div><div class="lbl"><b>Your tour</b></div></button>`,
+    `<button class="story-bubble" data-story="tour"><div class="ring ${seenSet.has(tourKey()) ? "seen" : ""}" data-key="${esc(tourKey())}"><img src="${esc(heroImg)}" data-title="${esc(name)}" alt=""></div><div class="lbl"><b>Food story</b></div></button>`,
     ...lms.map((l, i) => `<button class="story-bubble" data-story="lm" data-i="${i}"><div class="ring ${seenSet.has(lmKey(l)) ? "seen" : ""}" data-key="${esc(lmKey(l))}"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt=""></div><div class="lbl">${esc(l.title)}</div></button>`),
   ].join("");
   $("storiesRow").classList.add("stagger");
 
-  $("heroWrap").innerHTML = `<button class="hero" data-story="tour" aria-label="Play the tour of ${esc(name)}">
+  $("heroWrap").innerHTML = `<button class="hero" data-story="tour" aria-label="Play the food story of ${esc(name)}">
     <div class="photo"><img src="${esc(heroImg)}" data-title="${esc(name)}" alt="">
-      <span class="badge"><span class="dot"></span>Live tour</span>
-      <div class="over"><div class="k">${esc(region || "You are here")}</div><div class="t">${esc(name)}</div>
-        <div class="play"><span class="pc">${icon("play", "sm")}</span>Watch the story · 2 min</div></div>
+      <span class="badge"><span class="dot"></span>Food story</span>
+      <div class="over"><div class="k">What ${esc(name)} eats</div><div class="t">${esc(name)}</div>
+        <div class="play"><span class="pc">${icon("play", "sm")}</span>Watch the food story · 2 min</div></div>
     </div></button>`;
 
   const far = Math.max(0, ...lms.map((l) => l.distance || 0));
   $("lmCount").textContent = lms.length ? `${lms.length} within ${far < 1000 ? "1 km" : `${Math.ceil(far / 1000)} km`}` : "";
   $("rail").innerHTML = lms.length
     ? lms.map((l, i) => listingCard(l, i)).join("")
-    : `<div class="empty" style="padding:24px 0;width:100%"><div class="big">Off the map</div>No famous landmarks nearby. Ask the guide what's worth seeing.</div>`;
+    : `<div class="empty" style="padding:24px 0;width:100%"><div class="big">Slim pickings</div>No places to eat on the map right around here. Ask the guide where to go.</div>`;
   $("rail").classList.add("stagger");
+  $("sourceNote").textContent = S.place.source === "google" ? "Ratings and photos from Google Maps" : S.place.source === "osm" ? "Places from OpenStreetMap" : "";
 }
 
 function listingCard(l, i, extra = "") {
   return `<button class="listing ${extra}" data-landmark="${i}">
     <div class="photo"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt="" loading="lazy">
-      ${i === 0 && !extra ? `<span class="tag">Top pick</span>` : ""}
+      ${l.famous && !extra ? `<span class="tag">Famous</span>` : i === 0 && !extra ? `<span class="tag">Top pick</span>` : ""}
       <span class="heart ${isSaved(l.title) ? "on" : ""}" data-save="${i}" data-save-title="${esc(l.title)}" role="button" aria-label="Save">${icon("heart")}</span>
     </div>
     <div class="meta">
-      <div class="t"><span>${esc(l.title)}</span></div>
-      <div class="s">${esc(l.extract || "")}</div>
-      <div class="d"><b>${dist(l.distance)}</b> · ${walk(l.distance)}</div>
+      <div class="t"><span>${esc(l.title)}</span>${l.rating != null ? `<span class="rate">★ ${l.rating.toFixed(1)}</span>` : ""}</div>
+      <div class="s">${esc(spotKind(l))}</div>
+      <div class="d">${[dist(l.distance) && `<b>${dist(l.distance)}</b>`, walk(l.distance), l.price, openLabel(l)].filter(Boolean).join(" · ")}</div>
     </div></button>`;
 }
 
@@ -363,23 +368,23 @@ function onStoryTap(e) {
   const b = e.target.closest("[data-story]");
   if (!b || !S.place) return;
   if (b.dataset.story === "tour") openStory({ kind: "tour" });
-  else openStory({ kind: "lm", landmark: S.place.landmarks[Number(b.dataset.i)] });
+  else openStory({ kind: "lm", landmark: S.place.spots[Number(b.dataset.i)] });
 }
 
 $("rail").addEventListener("click", (e) => {
   const sv = e.target.closest("[data-save]");
   if (sv) {
     e.stopPropagation();
-    return toggleSave(S.place.landmarks[Number(sv.dataset.save)], sv);
+    return toggleSave(S.place.spots[Number(sv.dataset.save)], sv);
   }
   const c = e.target.closest("[data-landmark]");
-  if (c) openDetail(S.place.landmarks[Number(c.dataset.landmark)]);
+  if (c) openDetail(S.place.spots[Number(c.dataset.landmark)]);
 });
 
 function toggleSave(l, el) {
   const list = saved();
   const on = !list.some((x) => x.title === l.title);
-  local("tb-saved", on ? [{ ...l, savedFrom: placeParts().name }, ...list] : list.filter((x) => x.title !== l.title));
+  local("tb-saved-food", on ? [{ ...l, savedFrom: placeParts().name, savedAt: S.here }, ...list] : list.filter((x) => x.title !== l.title));
   el?.classList.toggle("on", on);
   document.querySelectorAll(`[data-save-title="${CSS.escape(l.title)}"]`).forEach((b) => b.classList.toggle("on", on));
   toast(on ? `Saved ${l.title}` : `Removed from saved`);
@@ -390,7 +395,7 @@ function renderSaved() {
   const list = saved();
   $("savedGrid").innerHTML = list.length
     ? `<div class="grid stagger">${list.map((l, i) => listingCard(l, i).replace(`data-landmark="${i}"`, `data-saved="${i}"`).replace(`data-save="${i}"`, `data-unsave="${i}"`).replace("Top pick", esc(l.savedFrom || ""))).join("")}</div>`
-    : `<div class="empty"><div class="big">Nothing saved yet</div>Tap the ${icon("heart", "sm")} on any landmark to keep it for later.</div>`;
+    : `<div class="empty"><div class="big">Nothing saved yet</div>Tap the ${icon("heart", "sm")} on any place to eat to keep it for later.</div>`;
 }
 $("savedGrid").addEventListener("click", (e) => {
   const list = saved();
@@ -406,12 +411,16 @@ $("savedGrid").addEventListener("click", (e) => {
 
 // ---------- stories ----------
 const tourKey = () => `tour:${S.here.lat.toFixed(3)},${S.here.lon.toFixed(3)}`;
-const lmKey = (l) => `lm:${l.title}`;
+const lmKey = (l) => `spot:${l.id || l.title}`;
 const V = { key: null, idx: 0, elapsed: 0, last: 0, paused: false, raf: 0, held: false, sound: false, spokenIdx: -1 };
 
 function storyUrl(kind, l) {
   const q = `lat=${S.here.lat}&lon=${S.here.lon}`;
-  return kind === "tour" ? `/api/tour?${q}` : `/api/landmark-story?${q}&title=${encodeURIComponent(l.title)}`;
+  if (kind === "tour") return `/api/tour?${q}`;
+  // Saved spots are looked up from where they were saved, since the server only
+  // tells stories about places near the given point.
+  const at = l.savedAt ? `lat=${l.savedAt.lat}&lon=${l.savedAt.lon}` : q;
+  return `/api/spot-story?${at}&id=${encodeURIComponent(l.id || "")}`;
 }
 
 // Starts (or reuses) a streamed story; cards fill in as they arrive.
@@ -453,7 +462,7 @@ function renderGuide() {
   if (!st.cards.length) {
     el.innerHTML = st.error
       ? `<div class="err">${esc(st.error)}<br><button data-guide-retry>Try again</button></div>`
-      : `<div class="note">Your guide is putting together the story of this area…</div>` + guideGhosts();
+      : `<div class="note">Your guide is digging into what this neighborhood eats…</div>` + guideGhosts();
     return;
   }
   const open = el.classList.contains("open");
@@ -483,11 +492,11 @@ function openStory({ kind, landmark }) {
   const st = fetchStory(key, storyUrl(kind, landmark));
   const { name } = placeParts();
   Object.assign(V, { key, st, kind, landmark, idx: 0, elapsed: 0, last: performance.now(), paused: false, spokenIdx: -1 });
-  $("storyName").textContent = kind === "tour" ? `${name} tour` : landmark.title;
-  V.baseSub = kind === "tour" ? "Your guide" : landmark.distance != null ? `${dist(landmark.distance)} away · ${walk(landmark.distance)}` : "Your guide";
+  $("storyName").textContent = kind === "tour" ? `Eating in ${name}` : landmark.title;
+  V.baseSub = kind === "tour" ? "Your food guide" : [spotKind(landmark), landmark.distance != null && !landmark.savedFrom ? dist(landmark.distance) : ""].filter(Boolean).join(" · ") || "Your food guide";
   V.metaShown = false;
   $("storySub").textContent = V.baseSub;
-  $("storyAvatar").innerHTML = `<img src="${esc(kind === "tour" ? (S.place.areaImage || S.place.landmarks.find((l) => l.thumbnail)?.thumbnail || art(name)) : photo(landmark))}" data-title="${esc(kind === "tour" ? name : landmark.title)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+  $("storyAvatar").innerHTML = `<img src="${esc(kind === "tour" ? (S.place.areaImage || S.place.spots.find((l) => l.thumbnail)?.thumbnail || art(name)) : photo(landmark))}" data-title="${esc(kind === "tour" ? name : landmark.title)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
   $("storyQ").value = "";
   $("storyQ").placeholder = kind === "tour" ? `Ask about ${name}…` : `Ask about ${landmark.title}…`;
   openLayer($("story"));
@@ -513,7 +522,7 @@ function closeStory(opts) {
 const cardMs = (c) => Math.max(5000, ((c.title + " " + c.body).split(/\s+/).length / 3.6) * 1000 + 1800);
 
 function bgFor(card, i) {
-  const lms = S.place?.landmarks || [];
+  const lms = S.place?.spots || [];
   if (V.kind === "lm") return photo(V.landmark);
   // Show a landmark's photo only on the card that talks about it. Match the short
   // name too: the guide says "Central Park", the article is "Central Park (San Mateo)".
@@ -554,7 +563,7 @@ function tick(now) {
   if (st.meta && !V.metaShown) {
     V.metaShown = true;
     const n = st.meta.hits || 1;
-    $("storySub").textContent = `${V.baseSub} · ${n > 1 ? `heard by ${n.toLocaleString()} travelers` : "you're the first to hear this"}`;
+    $("storySub").textContent = `${V.baseSub} · ${n > 1 ? `heard by ${n.toLocaleString()} people` : "you're the first to hear this"}`;
   }
 
   if (complete && V.elapsed >= dur && !V.speaking) {
@@ -583,7 +592,7 @@ function renderStoryCard(card, complete) {
         <h2>${esc(card.title)}</h2>
         <div class="text ${complete ? "" : "cursor"}">${prose(card.body) || "&nbsp;"}</div>
       </div>`
-    : `<div class="kicker">Your guide is getting ready</div><h2>One moment…</h2><div class="skeleton-line"></div><div class="skeleton-line" style="width:80%"></div>`;
+    : `<div class="kicker">Your guide is looking it up</div><h2>One moment…</h2><div class="skeleton-line"></div><div class="skeleton-line" style="width:80%"></div>`;
 }
 
 function next() {
@@ -682,6 +691,11 @@ $("storyReply").addEventListener("submit", (e) => {
 // ---------- landmark detail ----------
 function openDetail(l) {
   const qs = S.questions.filter((q) => q.topic === l.title);
+  const links = [
+    l.mapsUrl && [l.mapsUrl, "pin", "Menu, hours & reviews", "Google Maps"],
+    l.website && [l.website, "share", "Website", esc(l.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, ""))],
+    l.wikiUrl && [l.wikiUrl, "book", "Read its history", "Wikipedia"],
+  ].filter(Boolean);
   const dir = l.lat != null
     ? `https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${l.lat},${l.lon}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.title)}`;
@@ -694,35 +708,36 @@ function openDetail(l) {
       </div></div>
     <div class="sheet stagger">
       <h1>${esc(l.title)}</h1>
-      <div class="sub">${esc(l.savedFrom || placeParts().name)}${l.distance != null ? ` · ${dist(l.distance)} away` : ""}</div>
+      <div class="sub">${esc([spotKind(l), l.address || l.savedFrom || placeParts().name].filter(Boolean).join(" · "))}</div>
       <div class="stats">
-        <div><b>${dist(l.distance) || "—"}</b><span>distance</span></div>
-        <div><b>${l.distance != null ? Math.max(1, Math.round(l.distance / 80)) : "—"} min</b><span>on foot</span></div>
-        <div><b>${qs.length}</b><span>questions</span></div>
+        ${l.rating != null
+          ? `<div><b>★ ${l.rating.toFixed(1)}</b><span>${l.ratingCount ? `${count(l.ratingCount)} reviews` : "rating"}</span></div>`
+          : `<div><b>${l.famous ? "Famous" : "Local"}</b><span>${l.famous ? "on Wikipedia" : "spot"}</span></div>`}
+        <div><b>${l.price || dist(l.distance) || "—"}</b><span>${l.price ? "price" : "distance"}</span></div>
+        <div><b>${l.openNow == null ? qs.length : l.openNow ? "Open" : "Closed"}</b><span>${l.openNow == null ? "questions" : "right now"}</span></div>
       </div>
       <button class="row-link" data-lm-story>
         <div class="ring ${seen().has(lmKey(l)) ? "seen" : ""}" data-key="${esc(lmKey(l))}"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt=""></div>
-        <div class="txt"><div class="t">Watch its story</div><div class="s">3 quick cards from your guide</div></div>${icon("chev", "sm")}
+        <div class="txt"><div class="t">Watch its story</div><div class="s">Why people come, what to order, a tip</div></div>${icon("chev", "sm")}
       </button>
-      <hr>
-      <h3>About</h3>
-      <div class="about">${esc(l.extract || "No summary yet. Ask the guide!")}</div>
+      ${l.extract ? `<hr><h3>About</h3><div class="about">${esc(l.extract)}</div>` : ""}
+      ${l.hours ? `<div class="muted" style="margin-top:8px;font-size:14px">${icon("clock", "sm")} ${esc(l.hours)}</div>` : ""}
       <hr>
       <h3>Getting there</h3>
       <a class="row-link" href="${dir}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
         <span class="avatar" style="background:var(--soft);color:var(--ink);width:48px;height:48px;border-radius:12px">${icon("walk")}</span>
         <div class="txt"><div class="t">Walking directions</div><div class="s">${walk(l.distance) || "Open in Maps"}</div></div>${icon("chev", "sm")}
       </a>
-      <a class="row-link" href="${esc(l.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
-        <span class="avatar" style="background:var(--soft);color:var(--ink);width:48px;height:48px;border-radius:12px">${icon("book")}</span>
-        <div class="txt"><div class="t">Read the full history</div><div class="s">Wikipedia</div></div>${icon("chev", "sm")}
-      </a>
+      ${links.map(([href, ic, t, sub]) => `<a class="row-link" href="${esc(href)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
+        <span class="avatar" style="background:var(--soft);color:var(--ink);width:48px;height:48px;border-radius:12px">${icon(ic)}</span>
+        <div class="txt"><div class="t">${t}</div><div class="s">${sub}</div></div>${icon("chev", "sm")}
+      </a>`).join("")}
       <hr>
       <h3>Questions about ${esc(l.title)}</h3>
       <div class="feed" style="margin:0 -20px">${qs.length ? qs.slice(0, 3).map(postHtml).join("") : `<div class="muted" style="padding:0 20px">No one has asked about it yet. Be the first.</div>`}</div>
     </div>
     <div class="footer-bar">
-      <div class="txt"><b>${walk(l.distance) || "Nearby"}</b><span data-lm-story>Watch the story</span></div>
+      <div class="txt"><b>${[l.price, walk(l.distance)].filter(Boolean).join(" · ") || "Nearby"}</b><span data-lm-story>Watch the story</span></div>
       <button class="btn primary" data-ask-about>${icon("sparkle", "sm")}Ask the guide</button>
     </div>`;
   $("detail").scrollTop = 0;
@@ -748,17 +763,17 @@ $("detail").addEventListener("click", async (e) => {
     return $("question").focus();
   }
   if (e.target.closest("[data-share]")) {
-    const data = { title: l.title, text: `${l.title} — found with TravelBuddy`, url: l.url };
+    const data = { title: l.title, text: `${l.title}, found with TravelBuddy`, url: l.mapsUrl || l.url };
     if (navigator.share) navigator.share(data).catch(() => {});
-    else { navigator.clipboard?.writeText(l.url); toast("Link copied"); }
+    else { navigator.clipboard?.writeText(data.url); toast("Link copied"); }
   }
   handlePostClick(e);
 });
 
 // ---------- ask & Q&A feed ----------
 function renderChips() {
-  const top = S.place?.landmarks?.[0]?.title;
-  const chips = ["Why is this place famous?", "Where do locals eat?", top && `What's the story of ${top}?`, "Any hidden gems nearby?", "Best photo spot?"].filter(Boolean);
+  const top = S.place?.spots?.[0]?.title;
+  const chips = ["What is this area known for eating?", "Where do locals eat?", top && `What should I order at ${top}?`, "Best cheap eats nearby?", "Anything good open late?"].filter(Boolean);
   $("chips").innerHTML = chips.map((c) => `<button class="chip" data-chip>${esc(c)}</button>`).join("");
 }
 $("chips").addEventListener("click", (e) => {
@@ -785,7 +800,7 @@ function postHtml(q, live = false) {
     <div class="q">${esc(q.question)}</div>
     ${q.topic ? `<span class="topic">${icon("pin", "sm")}${esc(q.topic)}</span>` : ""}
     <div class="reply"><span class="avatar guide">${icon("sparkle", "sm")}</span>
-      <div class="body"><div class="who">TravelBuddy guide</div>
+      <div class="body"><div class="who">Food guide</div>
         <p class="ans">${live ? `<span class="cursor">${inline(q.answer || "")}</span>` : `${esc(lead)}<span class="more">${esc(rest)}</span>`}</p></div></div>
     ${live ? "" : `<div class="post-actions">
       <button data-like="${q.id}" class="${v ? "liked" : ""}" ${v ? "disabled" : ""} aria-label="Helpful">${icon("heart", "sm")}<span>${q.upvotes || 0}</span></button>
@@ -798,7 +813,7 @@ function renderFeed() {
   const qs = S.questions;
   $("feed").innerHTML = qs.length
     ? qs.map((q) => postHtml(q)).join("")
-    : `<div class="empty"><div class="big">Be the first to ask</div>Your question, and the guide's answer, will help the next traveler here.</div>`;
+    : `<div class="empty"><div class="big">Be the first to ask</div>Your question, and the guide's answer, will help the next hungry person here.</div>`;
   $("previewQa").innerHTML = qs.length
     ? qs.slice(0, 2).map((q) => postHtml(q)).join("")
     : `<div class="empty" style="padding:28px 20px"><div class="big" style="font-size:24px">No questions yet</div><button class="btn outline" data-goto="ask" style="margin-top:12px">Ask the first one</button></div>`;
@@ -822,7 +837,7 @@ async function ask(question, topic = null) {
   if (!question || !S.here) return;
   $("question").value = "";
   $("question").blur();
-  $("question").placeholder = "Ask anything about this place…";
+  $("question").placeholder = "Ask about food around here…";
   delete $("question").dataset.topic;
   $("askBtn").disabled = true;
 
@@ -844,7 +859,7 @@ async function ask(question, topic = null) {
       if (ev === "text") { draft.answer += data.text; ansEl().innerHTML = inline(draft.answer); }
       else if (ev === "error") throw new Error(data.message);
       else if (ev === "saved") {
-        if (data.hidden) toast("Answered privately: this question won't be shown to other travelers.");
+        if (data.hidden) toast("Answered privately: this question won't be shown to other people.");
         else S.questions = [{ ...data, distance: 0 }, ...S.questions];
         holder.outerHTML = postHtml({ ...data, author: "You" }).replace('class="post', 'class="post open');
         renderFeedPreviewOnly();
@@ -917,7 +932,7 @@ document.addEventListener("visibilitychange", () => {
     const m = Math.hypot(lat - S.here.lat, (lon - S.here.lon) * Math.cos((lat * Math.PI) / 180)) * 111320;
     if (m > 300 && S.gps && !layers.length && !root.classList.contains("typing")) {
       go(lat, lon, { gps: true });
-      toast("You've moved. Here's the story of where you are now.");
+      toast("You've moved. Here's what's cooking where you are now.");
     }
   }, () => {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
 });

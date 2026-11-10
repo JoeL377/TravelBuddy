@@ -1,7 +1,8 @@
-// TravelBuddy: a virtual tour guide.
-// Express server that turns the user's coordinates into a guided rundown of the
-// area (via OpenStreetMap + Wikipedia + Claude) and keeps a shared, location-based
-// board of follow-up questions that other travelers nearby can read.
+// TravelBuddy: a pocket food guide.
+// Express server that turns the user's coordinates into the food story of the
+// neighborhood and its best nearby places to eat (via OpenStreetMap or Google
+// Places + Wikipedia + Claude), and keeps a shared, location-based board of food
+// questions that other people nearby can read.
 
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
@@ -10,6 +11,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { openStore } from "./store.js";
 import { describePlace, searchPlace } from "./places.js";
+import { googlePhotoUrl } from "./food.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -28,7 +30,10 @@ const client = MOCK ? null : new Anthropic();
 const store = openStore(process.env.DB_PATH || path.join(here, "travelbuddy.db"));
 
 // Bump when the story prompts change, so every area gets fresh cards.
-const STORY_VERSION = "v1";
+const STORY_VERSION = "food1";
+// Stories look things up on the web first (what a place is known for, what to
+// order), since spot data alone rarely says. Set FOOD_WEB_SEARCH=0 to turn off.
+const WEB_SEARCH = process.env.FOOD_WEB_SEARCH !== "0";
 const STORY_TTL_DAYS = Number(process.env.STORY_TTL_DAYS || 0); // 0 = keep forever
 
 const app = express();
@@ -38,7 +43,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
 
 // For the host's health check.
-app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL }));
+app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL, foodSource: process.env.GOOGLE_PLACES_API_KEY ? "google" : "osm", webSearch: WEB_SEARCH }));
 app.use(express.json({ limit: "32kb" }));
 
 // --- Abuse limits ---------------------------------------------------------
@@ -69,24 +74,35 @@ const VOTER_SALT = store.persistentSecret("voter_salt", () => crypto.randomBytes
 const travelerId = (req) => crypto.createHash("sha256").update(VOTER_SALT + req.ip).digest("hex").slice(0, 32);
 app.use(express.static(path.join(here, "public")));
 
-const GUIDE_SYSTEM = `You are TravelBuddy, a warm, knowledgeable local tour guide speaking to a traveler who is standing at the location described below.
-Speak directly to them ("you're standing in..."), like a great human guide: vivid, specific, and accurate.
-Ground what you say in the supplied place and landmark notes. You may add well-established historical facts you are confident about, but never invent dates, names or events. If the notes are thin, say less rather than guess.
-The traveler is reading on a phone while walking, so be brief and scannable: short sentences, plain words, **bold** only for landmark names. No preamble, no sign-off.`;
+const GUIDE_SYSTEM = `You are TravelBuddy, a warm, well-fed local food guide talking to someone standing at the location described below.
+Speak directly to them, like a friend who knows every kitchen in town: vivid, specific, and accurate. Talk about food: what this place eats and why, the dishes, the people and history behind them, and where to go.
+Ground what you say in the supplied place and spot notes and in anything you look up. Never invent a dish, a menu item, a price, an opening hour, a date or a person. If you aren't sure what a specific spot serves, talk about its cuisine in general terms rather than guess. If the notes are thin, say less.
+They're reading on a phone, probably hungry, so be brief and scannable: short sentences, plain words, **bold** only for the names of places to eat. No preamble, no sign-off.`;
+
+function spotLine(l) {
+  const away = l.distance == null ? "" : l.distance < 1000 ? `${l.distance} m away` : `${(l.distance / 1000).toFixed(1)} km away`;
+  const facts = [
+    l.kind,
+    l.cuisine,
+    l.rating != null ? `rated ${l.rating} from ${l.ratingCount ?? "some"} reviews` : null,
+    l.price,
+    l.famous ? "has its own Wikipedia article" : null,
+    l.address,
+    away,
+  ].filter(Boolean).join(", ");
+  return `- ${l.title} (${facts})${l.extract ? `: ${l.extract}` : ""}`;
+}
 
 function locationContext(place) {
   const lines = [
     `Location: ${place.label}`,
     `Coordinates: ${place.lat.toFixed(5)}, ${place.lon.toFixed(5)}`,
   ];
-  if (place.landmarks.length) {
-    lines.push("", "Nearby landmarks (from Wikipedia, most notable first; tourist-irrelevant entries like companies, schools and stations already removed):");
-    for (const l of place.landmarks) {
-      const away = l.distance == null ? "" : l.distance < 1000 ? `${l.distance} m away` : `${(l.distance / 1000).toFixed(1)} km away`;
-      lines.push(`- ${l.title} (${[l.description, away].filter(Boolean).join(", ")}): ${l.extract || "no summary available"}`);
-    }
+  if (place.spots.length) {
+    lines.push("", `Places to eat within about 1.5 km (from ${place.source === "google" ? "Google Maps" : "OpenStreetMap"}; best and most notable first, chains pushed down):`);
+    for (const l of place.spots) lines.push(spotLine(l));
   } else {
-    lines.push("", "No notable Wikipedia landmarks were found within 10 km.");
+    lines.push("", "No places to eat were found in the map data within 1.5 km.");
   }
   return lines.join("\n");
 }
@@ -102,28 +118,47 @@ function openSse(res) {
 }
 
 // Streams Claude's answer as `text` events and resolves with the full text.
-async function streamClaude({ model, system, prompt, send, maxTokens = 4000 }) {
+// With `search`, Claude may look things up on the web first.
+async function streamClaude({ model, system, prompt, send, maxTokens = 4000, search = 0 }) {
   if (MOCK) return mockStream(prompt, send);
 
-  const stream = client.beta.messages.stream({
-    model,
-    max_tokens: maxTokens,
-    output_config: { effort: EFFORT },
-    // If a safety classifier declines, let the API re-run on a fallback model.
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    system,
-    messages: [{ role: "user", content: prompt }],
-  });
-
+  const messages = [{ role: "user", content: prompt }];
+  const tools = search ? [{ type: "web_search_20260209", name: "web_search", max_uses: search }] : undefined;
   let full = "";
-  for await (const event of stream) {
-    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-      full += event.delta.text;
-      send("text", { text: event.delta.text });
+  let final;
+  // A long search turn can pause; resume it (a few times at most) to get the answer.
+  for (let round = 0; round < 3; round++) {
+    const stream = client.beta.messages.stream({
+      model,
+      max_tokens: maxTokens,
+      output_config: { effort: EFFORT },
+      // If a safety classifier declines, let the API re-run on a fallback model.
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      system,
+      messages,
+      ...(tools ? { tools } : {}),
+    });
+    let lastBlock = null;
+    for await (const event of stream) {
+      if (event.type === "content_block_start") {
+        // Text that resumes after a web search starts a new block; make sure a
+        // card heading still lands on its own line.
+        if (event.content_block.type === "text" && lastBlock && lastBlock !== "text" && full && !full.endsWith("\n")) {
+          full += "\n\n";
+          send("text", { text: "\n\n" });
+        }
+        lastBlock = event.content_block.type;
+      }
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        full += event.delta.text;
+        send("text", { text: event.delta.text });
+      }
     }
+    final = await stream.finalMessage();
+    if (final.stop_reason !== "pause_turn") break;
+    messages.push({ role: "assistant", content: final.content });
   }
-  const final = await stream.finalMessage();
   if (final.stop_reason === "refusal") {
     const msg = "Sorry, I can't help with that one.";
     send("text", { text: msg });
@@ -132,20 +167,27 @@ async function streamClaude({ model, system, prompt, send, maxTokens = 4000 }) {
   return { text: full, ok: final.stop_reason === "end_turn" && full.trim().length > 0 };
 }
 
+// Story cards start at the first "## " heading; drop any lead-in Claude wrote
+// before it (e.g. while searching).
+const cardsOnly = (text) => {
+  const i = text.search(/^## /m);
+  return i === -1 ? text : text.slice(i);
+};
+
 const MOCK_TEXT = {
   answer:
-    "**(Demo mode) The old harbor wall is the oldest thing here, from around 1300.** With an API key set, I'll answer any question about where you are in a couple of quick sentences.",
-  landmark: [
-    "## 🏛️ Built to impress\nThis is a demo story about a single landmark. With an API key, you'll get three quick cards on its real history.",
-    "## 🕰️ The turning point\nThe middle card tells the moment that made it famous: a fire, a king, a revolution.",
-    "## 👀 Look for this\nThe last card points out one detail most visitors walk straight past.",
+    "**(Demo mode) Locals queue at Harbor Noodle House for the shoyu ramen.** With an API key set, I'll answer any food question about where you are in a couple of quick sentences.",
+  spot: [
+    "## 🍜 Why people come\nThis is a demo story about a single spot. With an API key, you'll get three quick cards on what it is and why it's loved.",
+    "## 🥢 What to order\nThe middle card tells you the dish regulars come back for.",
+    "## 💡 Good to know\nThe last card is a tip: when to go, how to order, or what most people miss.",
   ].join("\n\n"),
   tour: [
-    "## 📍 You're in Old Harbor\nWelcome to the demo tour. This is a cobbled waterfront quarter where fishermen, merchants and painters have rubbed shoulders for seven centuries.",
-    "## ⚓ A town built on herring\nIn the 1300s, the herring trade made this harbor rich. The tall, narrow houses you see were merchants' homes, taxed by the width of their fronts.",
-    "## 🔥 The great fire of 1842\nA bakery fire swept the quarter one windy night. The town rebuilt in stone, which is why the streets feel so uniform today.",
-    "## 🏛️ **Old Town Hall**\nIts clock tower was the first thing rebuilt after the fire, as a sign the town would recover. Council still meets under its painted ceiling.",
-    "## ⭐ Don't miss\nWalk to the end of the harbor wall at sunset, when the whole waterfront turns gold. Set ANTHROPIC_API_KEY to hear the real story of wherever you are.",
+    "## 📍 You're in Old Harbor\nWelcome to the demo food story. This waterfront quarter has fed sailors, merchants and painters for seven centuries.",
+    "## 🐟 A town built on herring\nIn the 1300s the herring trade made this harbor rich, and pickled herring is still sold from carts by the water.",
+    "## 🍜 The ramen wave\nJapanese crews docking here in the 1970s left behind a taste for noodles. Now **Harbor Noodle House** has a queue before it opens.",
+    "## 🧺 Under one roof\n**Old Market Hall** has been feeding the quarter since 1889. Go hungry and graze from stall to stall.",
+    "## ⭐ Don't miss\nA scoop from **Gelato Lighthouse** at the end of the pier at sunset. Set ANTHROPIC_API_KEY to hear the real food story of wherever you are.",
   ].join("\n\n"),
 };
 
@@ -154,7 +196,7 @@ async function mockStream(prompt, send) {
 }
 
 async function mockText(prompt, send) {
-  const text = prompt.includes("QUESTION:") ? MOCK_TEXT.answer : prompt.includes("LANDMARK:") ? MOCK_TEXT.landmark : MOCK_TEXT.tour;
+  const text = prompt.includes("QUESTION:") ? MOCK_TEXT.answer : prompt.includes("SPOT:") ? MOCK_TEXT.spot : MOCK_TEXT.tour;
   let out = "";
   for (const word of text.split(/(?<= )/)) {
     out += word;
@@ -174,13 +216,13 @@ function parseCoords(src) {
 }
 
 // --- Shared story cards ---------------------------------------------------
-// A story is generated once per key (an area or a landmark), stored, and
+// A story is generated once per key (an area or a spot), stored, and
 // replayed to everyone after. If a second traveler asks while the first
 // generation is still streaming, they join that stream instead of starting a
 // new Claude call.
 const inflight = new Map(); // key -> { text, subscribers:Set<send>, done:Promise }
 
-async function serveStory(req, res, { key, kind, label, prompt, maxTokens }) {
+async function serveStory(req, res, { key, kind, label, prompt, maxTokens = 8000, search = 0 }) {
   const send = openSse(res);
   const cached = store.getStory(key, STORY_TTL_DAYS);
   if (cached) {
@@ -211,9 +253,9 @@ async function serveStory(req, res, { key, kind, label, prompt, maxTokens }) {
       if (event === "text") job.text += data.text;
       for (const s of job.subscribers) s(event, data);
     };
-    job.done = streamClaude({ model: STORY_MODEL, system: GUIDE_SYSTEM, prompt, send: broadcast, maxTokens })
+    job.done = streamClaude({ model: STORY_MODEL, system: GUIDE_SYSTEM, prompt, send: broadcast, maxTokens, search: WEB_SEARCH ? search : 0 })
       .then((out) => {
-        if (out.ok) store.putStory({ key, kind, label, text: out.text, model: MOCK ? "mock" : STORY_MODEL, hits: job.joiners });
+        if (out.ok) store.putStory({ key, kind, label, text: cardsOnly(out.text), model: MOCK ? "mock" : STORY_MODEL, hits: job.joiners });
         return out.ok;
       })
       .finally(() => inflight.delete(key));
@@ -252,8 +294,8 @@ async function isFitToShare(question) {
       model: MODERATION_MODEL,
       max_tokens: 1000,
       output_config: { effort: "low" },
-      system: `You screen questions that travelers ask a tour-guide app before they are shown publicly to other travelers nearby.
-Reply SHARE if the question is fine to show strangers, or HIDE if it contains personal information (names, phone numbers, addresses of private people), harassment, hate, sexual content, spam or advertising, or anything unrelated to travel that others would find offensive. Reply with that one word only.`,
+      system: `You screen questions that people ask a local food-guide app before they are shown publicly to other people nearby.
+Reply SHARE if the question is fine to show strangers, or HIDE if it contains personal information (names, phone numbers, addresses of private people), harassment, hate, sexual content, spam or advertising (including a business promoting itself or attacking a competitor), or anything others would find offensive. Reply with that one word only.`,
       messages: [{ role: "user", content: `Question: ${question}` }],
     });
     if (msg.stop_reason === "refusal") return false;
@@ -267,7 +309,7 @@ Reply SHARE if the question is fine to show strangers, or HIDE if it contains pe
 
 // --- Routes ---------------------------------------------------------------
 
-// Place name + nearby landmarks (no LLM; fast, cached).
+// Place name + nearby places to eat (no LLM; fast, cached).
 app.get("/api/place", async (req, res) => {
   const c = parseCoords(req.query);
   if (!c) return res.status(400).json({ error: "lat and lon are required" });
@@ -293,7 +335,7 @@ app.get("/api/search", async (req, res) => {
   }
 });
 
-// The guided rundown of the area, shared by everyone in the same neighborhood.
+// The food story of the neighborhood, shared by everyone in it.
 app.get("/api/tour", async (req, res) => {
   const c = parseCoords(req.query);
   if (!c) return res.status(400).json({ error: "lat and lon are required" });
@@ -307,45 +349,46 @@ app.get("/api/tour", async (req, res) => {
   const prompt = `${locationContext(place)}
 ${place.areaName ? `\nNeighborhood: ${place.areaName}` : ""}
 
-Give me the rundown of this neighborhood as a set of swipeable story cards for my phone. Other travelers anywhere in this neighborhood will see the same cards, so describe the area as a whole rather than one exact street corner.
-Write 5 to 7 cards. Each card starts on its own line with "## ", then one fitting emoji, then a title of at most 5 words. Under it, write 2 or 3 short sentences (at most 45 words in total).
-Card order: first "where you are" (what this place is and its vibe), then 2 or 3 cards on how it came to be and key moments in its history, then 1 or 2 cards each on a famous nearby landmark and why it matters, and last a card titled "Don't miss" with one concrete thing to do or see here.
-Output only the cards.`;
-  await serveStory(req, res, { key: `tour:${STORY_VERSION}:${place.areaKey}`, kind: "tour", label: place.areaName || place.label, prompt });
+Tell me the food story of this neighborhood as a set of swipeable story cards for my phone. Other people anywhere in this neighborhood will see the same cards, so describe the area as a whole rather than one street corner.
+${WEB_SEARCH ? "First, if it helps, search the web for what this neighborhood and town are known for eating and for the stories behind the notable spots above. Then write the cards.\n" : ""}Write 5 to 7 cards. Each card starts on its own line with "## ", then one fitting emoji, then a title of at most 5 words. Under it, write 2 or 3 short sentences (at most 45 words in total).
+Card order: first "what's cooking here" (the food identity of this place in a nutshell), then 2 cards on how it came to eat this way (the communities, history or local produce behind its signature dishes), then 1 or 2 cards each on a standout spot from the list and what to get there, and last a card titled "Don't miss" with the one bite to try here and where.
+Only recommend spots from the list above. Output only the cards, with nothing before the first card.`;
+  await serveStory(req, res, { key: `tour:${STORY_VERSION}:${place.areaKey}`, kind: "tour", label: place.areaName || place.label, prompt, search: 4 });
 });
 
-// A three-card mini story about one landmark, shared by everyone who opens it.
-app.get("/api/landmark-story", async (req, res) => {
+// A three-card mini story about one place to eat, shared by everyone who opens it.
+app.get("/api/spot-story", async (req, res) => {
   const c = parseCoords(req.query);
-  const title = String(req.query.title || "").trim().slice(0, 200);
-  if (!c || !title) return res.status(400).json({ error: "lat, lon and title are required" });
+  const id = String(req.query.id || "").trim().slice(0, 300);
+  if (!c || !id) return res.status(400).json({ error: "lat, lon and id are required" });
   let place;
   try {
     place = await describePlace(c.lat, c.lon);
   } catch (err) {
-    console.error("landmark place lookup failed", err);
+    console.error("spot place lookup failed", err);
     return res.status(502).json({ error: "Could not look up this location right now." });
   }
-  // Only stories about real Wikipedia landmarks near the traveler, so nobody can
-  // make the guide write (and share) a story about something arbitrary.
-  const lm = place.landmarks.find((l) => l.title === title);
-  if (!lm) return res.status(404).json({ error: "That landmark isn't near here." });
-  const prompt = `LANDMARK: ${title}
+  // Only stories about real spots near the person, so nobody can make the guide
+  // write (and share) a story about something arbitrary.
+  const spot = place.spots.find((l) => l.id === id);
+  if (!spot) return res.status(404).json({ error: "That place isn't near here." });
+  const prompt = `SPOT: ${spot.title}
 In or near: ${place.label}
-Notes from Wikipedia: ${lm.extract || "none available"}
+What we know:
+${spotLine({ ...spot, distance: null })}${spot.website ? `\nWebsite: ${spot.website}` : ""}
 
-Tell me the story of this one landmark as exactly 3 swipeable story cards for my phone. Don't refer to how far away it is, since travelers will open this from different spots.
-Each card starts on its own line with "## ", then one fitting emoji, then a title of at most 5 words. Under it, write 2 or 3 short sentences (at most 40 words in total).
-Card 1: what it is and why people come. Card 2: the most dramatic moment in its history. Card 3: one detail to look for when you're there.
-Output only the cards.`;
-  await serveStory(req, res, { key: `landmark:${STORY_VERSION}:wp:${lm.pageid ?? title.toLowerCase()}`, kind: "landmark", label: title, prompt, maxTokens: 2000 });
+Tell me about this one place to eat as exactly 3 swipeable story cards for my phone. Don't refer to how far away it is, since people will open this from different spots.
+${WEB_SEARCH ? `First, search the web for ${spot.title} in ${place.area || place.label} to learn what it's known for and what people order. If you can't find it, or aren't sure a result is this exact place, stick to what we know above and talk about its kind of food in general.\n` : ""}Each card starts on its own line with "## ", then one fitting emoji, then a title of at most 5 words. Under it, write 2 or 3 short sentences (at most 40 words in total).
+Card 1: what it is and why people come (its story, if it has one). Card 2: what to order. Card 3: one tip (when to go, how to order, or what most people miss).
+Never make up a dish, price or opening hour. Output only the cards, with nothing before the first card.`;
+  await serveStory(req, res, { key: `spot:${STORY_VERSION}:${spot.id}`, kind: "spot", label: spot.title, prompt, search: 3 });
 });
 
 // Ask a follow-up; the answer streams back and the Q&A is saved for travelers nearby.
 app.post("/api/ask", async (req, res) => {
   const c = parseCoords(req.body || {});
   const question = String(req.body?.question || "").trim().slice(0, 500);
-  const author = String(req.body?.author || "").trim().slice(0, 40) || "A traveler";
+  const author = String(req.body?.author || "").trim().slice(0, 40) || "A local";
   const topic = String(req.body?.topic || "").trim().slice(0, 200) || null;
   if (!c || !question) return res.status(400).json({ error: "lat, lon and question are required" });
   if (!allow("ask", travelerId(req))) {
@@ -357,10 +400,10 @@ app.post("/api/ask", async (req, res) => {
     const place = await describePlace(c.lat, c.lon);
     const prompt = `${locationContext(place)}
 
-The traveler asks a follow-up question about this area${topic ? `, specifically about ${topic}` : ""}.
+They ask a food question about this area${topic ? `, specifically about ${topic}` : ""}.
 QUESTION: ${question}
 
-Answer as their guide for a phone screen: start with a one-sentence direct answer in **bold**, then at most 2 short sentences of color or a tip. Under 70 words total, no lists.`;
+Answer as their food guide for a phone screen: start with a one-sentence direct answer in **bold**, then at most 2 short sentences of color or a tip. When you point them somewhere, prefer the spots listed above. If they ask about something you can't know from here, like today's hours or a current menu, say so and suggest checking the spot's page. If the question isn't about food or drink, answer briefly and steer back to what's good to eat nearby. Under 70 words total, no lists.`;
     const { text: answer } = await streamClaude({ model: ANSWER_MODEL, system: GUIDE_SYSTEM, prompt, send, maxTokens: 2000 });
     const hidden = !(await isFitToShare(question));
     const saved = store.addQuestion({ ...c, placeLabel: place.label, author, question, answer, topic, hidden });
@@ -373,7 +416,20 @@ Answer as their guide for a phone screen: start with a one-sentence direct answe
   res.end();
 });
 
-// Questions other travelers asked near here.
+// Photos of Google Places spots, without exposing the API key to the browser.
+app.get("/api/food-photo", async (req, res) => {
+  try {
+    const url = await googlePhotoUrl(String(req.query.ref || ""));
+    if (!url) return res.status(404).end();
+    res.set("Cache-Control", "public, max-age=3600");
+    res.redirect(302, url);
+  } catch (err) {
+    console.error("food photo failed", err.message);
+    res.status(502).end();
+  }
+});
+
+// Food questions other people asked near here.
 app.get("/api/questions", (req, res) => {
   const c = parseCoords(req.query);
   if (!c) return res.status(400).json({ error: "lat and lon are required" });
@@ -388,6 +444,6 @@ app.post("/api/questions/:id/upvote", (req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`TravelBuddy running at http://localhost:${PORT}`);
+  console.log(`TravelBuddy (food guide) running at http://localhost:${PORT}`);
   if (MOCK) console.log("Demo mode: set ANTHROPIC_API_KEY for real narration.");
 });

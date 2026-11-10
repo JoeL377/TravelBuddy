@@ -1,9 +1,13 @@
-// Turns coordinates into a place name + nearby landmarks using free, keyless APIs:
-// OpenStreetMap Nominatim (reverse geocoding) and Wikipedia GeoSearch.
+// Turns coordinates into a place name + nearby places to eat: OpenStreetMap
+// Nominatim (reverse geocoding), food spots from Google Places or OpenStreetMap
+// (see food.js), and Wikipedia for the famous ones (restaurants, markets,
+// bakeries with their own article) and for photos of the area.
 // Results are cached by ~100 m grid cell so many users in one spot cost one lookup.
 
 // OpenStreetMap asks apps to identify themselves with a way to reach the operator.
-const UA = `TravelBuddy/0.1 (virtual tour guide${process.env.CONTACT_EMAIL ? `; ${process.env.CONTACT_EMAIL}` : ""})`;
+import { nearbyFood, mockSpots, FOOD_SOURCE } from "./food.js";
+
+const UA = `TravelBuddy/0.2 (food guide${process.env.CONTACT_EMAIL ? `; ${process.env.CONTACT_EMAIL}` : ""})`;
 const cache = new Map();
 const TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -26,10 +30,18 @@ async function getJson(url) {
 }
 
 async function lookup(lat, lon) {
-  const [geo, landmarks] = await Promise.all([
+  const [geo, food, famous] = await Promise.all([
     reverseGeocode(lat, lon).catch(() => null),
-    nearbyLandmarks(lat, lon).catch(() => []),
+    nearbyFood(lat, lon, { ua: UA }).catch((err) => {
+      console.error("food spots lookup failed", err.message);
+      return { source: FOOD_SOURCE, spots: [] };
+    }),
+    famousFoodPlaces(lat, lon).catch((err) => {
+      console.error("wikipedia food lookup failed", err.message);
+      return [];
+    }),
   ]);
+  const spots = mergeFamous(food.spots, famous);
   const areaImage = geo?.area ? await cityImage(geo.area, geo.state).catch(() => null) : null;
   // Wikimedia asks API clients not to fire requests in parallel (and answers
   // 429 when they do), so Commons lookups run one after another.
@@ -37,28 +49,113 @@ async function lookup(lat, lon) {
     console.error("commons area photos failed", err.message);
     return [];
   });
-  // Landmarks whose article has no free lead photo: borrow a Commons photo
-  // taken right at the landmark, preferring one whose file name mentions it.
-  for (const l of landmarks.filter((x) => !x.thumbnail && x.lat != null)) {
+  // Famous spots with no photo: borrow a Commons photo taken right there,
+  // preferring one whose file name mentions the place.
+  for (const l of spots.filter((x) => !x.thumbnail && x.famous && x.lat != null).slice(0, 4)) {
     try {
-      const [hit] = await commonsPhotos(l.lat, l.lon, { radius: 150, limit: 10, prefer: l.title, strict: true });
+      const [hit] = await commonsPhotos(l.lat, l.lon, { radius: 120, limit: 10, prefer: l.title, strict: true });
       if (hit) l.thumbnail = hit;
     } catch (err) {
-      console.error("commons landmark photo failed", l.title, err.message);
+      console.error("commons spot photo failed", l.title, err.message);
     }
   }
   return {
-    label: geo?.label || landmarks[0]?.title || "Somewhere interesting",
-    // Lead photo of the town's own Wikipedia article, for the tour cover.
+    label: geo?.label || "Somewhere tasty",
+    // Lead photo of the town's own Wikipedia article, for the food story cover.
     areaImage,
-    // More photos taken around here (Wikimedia Commons), for tour story cards.
-    areaPhotos: areaPhotos.filter((u) => u !== areaImage && !landmarks.some((l) => l.thumbnail === u)).slice(0, 8),
+    // More photos taken around here (Wikimedia Commons), for story cards.
+    areaPhotos: areaPhotos.filter((u) => u !== areaImage && !spots.some((l) => l.thumbnail === u)).slice(0, 8),
     area: geo?.area || null,
-    // Everyone in the same neighborhood shares one generated tour.
+    // Everyone in the same neighborhood shares one generated food story.
     areaKey: geo?.areaKey || gridKey(lat, lon),
     areaName: geo?.areaName || geo?.label || null,
-    landmarks,
+    // Where the spot list came from: "google" (ratings, photos) or "osm".
+    source: food.source,
+    spots,
   };
+}
+
+// Restaurants, markets and bakeries famous enough for a Wikipedia article.
+// Matched against the article's short description, e.g. "Restaurant in San Mateo".
+const FOOD_ARTICLE = /\b(restaurant|diner|bakery|caf[eé]|coffee ?house|tea ?house|delicatessen|deli|food hall|food court|market hall|public market|farmers'? market|marketplace|brewery|winery|distillery|ice cream|creamery|pizzeria|steakhouse|taqueria|noodle|sushi|dim sum|chocolatier|confectioner|tavern|saloon|drive-in|eatery|brewpub)\b/i;
+const NOT_A_SPOT = /\b(chain|company|corporation|franchise|brand|conglomerate|headquarters|person|chef|restaurateur|businessman|businesswoman|television|book|film)\b/i;
+
+async function famousFoodPlaces(lat, lon) {
+  if (MOCK_PLACES) return [];
+  const params = new URLSearchParams({
+    action: "query", format: "json", formatversion: "2", origin: "*",
+    generator: "geosearch", ggscoord: `${lat}|${lon}`, ggsradius: "3000", ggslimit: "50",
+    prop: "coordinates|description", colimit: "max",
+  });
+  const d = await getJson(`https://en.wikipedia.org/w/api.php?${params}`);
+  const hits = (d.query?.pages || []).filter((p) => p.coordinates?.[0] && FOOD_ARTICLE.test(p.description || "") && !NOT_A_SPOT.test(p.description || ""));
+  if (!hits.length) return [];
+  const details = new URLSearchParams({
+    action: "query", format: "json", formatversion: "2", origin: "*",
+    pageids: hits.map((p) => p.pageid).slice(0, 20).join("|"),
+    prop: "extracts|pageimages|info", inprop: "url", exintro: "1", explaintext: "1", exsentences: "3", exlimit: "max",
+    piprop: "thumbnail", pithumbsize: "900", pilimit: "max",
+  });
+  const byId = new Map();
+  try {
+    const dd = await getJson(`https://en.wikipedia.org/w/api.php?${details}`);
+    for (const p of dd.query?.pages || []) byId.set(p.pageid, p);
+  } catch (err) {
+    console.error("wikipedia food details failed", err.message);
+  }
+  return hits.map((p) => {
+    const c = p.coordinates[0];
+    const x = byId.get(p.pageid) || {};
+    return {
+      pageid: p.pageid,
+      title: p.title.replace(/\s*\(.*\)$/, ""),
+      description: p.description,
+      extract: x.extract || p.description,
+      thumbnail: photoUrl(x.thumbnail),
+      wikiUrl: x.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, "_"))}`,
+      lat: c.lat,
+      lon: c.lon,
+      distance: Math.round(dist(lat, lon, c.lat, c.lon)),
+    };
+  });
+}
+
+const norm = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/^the\s+/, "").replace(/[^a-z0-9]+/g, " ").trim();
+
+// A famous place that's also in the spot list gets its Wikipedia story and a
+// "famous" badge; one that isn't (the source missed it) joins the list.
+export function mergeFamous(spots, famous) {
+  const out = spots.map((s) => ({ ...s }));
+  for (const f of famous) {
+    const n = norm(f.title);
+    const match = out.find((s) => {
+      const m = norm(s.title);
+      return (m === n || (n.length > 5 && (m.includes(n) || n.includes(m)))) && (s.lat == null || dist(s.lat, s.lon, f.lat, f.lon) < 300);
+    });
+    if (match) {
+      match.famous = true;
+      match.extract = f.extract || match.extract;
+      match.wikiUrl = f.wikiUrl;
+      match.thumbnail = match.thumbnail || f.thumbnail;
+    } else if (f.distance <= 3000) {
+      out.push({
+        id: `wp:${f.pageid}`, title: f.title, kind: kindFromDescription(f.description), cuisine: null,
+        description: f.description, extract: f.extract, rating: null, ratingCount: null, price: null, openNow: null,
+        address: null, website: null,
+        mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${f.title} ${f.lat},${f.lon}`)}`,
+        url: f.wikiUrl, wikiUrl: f.wikiUrl, thumbnail: f.thumbnail, lat: f.lat, lon: f.lon, distance: f.distance, famous: true,
+      });
+    }
+  }
+  // Famous places first, then the source's own ranking.
+  return out.map((s, i) => ({ s, i })).sort((a, b) => (b.s.famous - a.s.famous) || a.i - b.i).map((x) => x.s).slice(0, 14);
+}
+
+function kindFromDescription(d = "") {
+  const m = FOOD_ARTICLE.exec(d);
+  if (!m) return "Food spot";
+  const w = m[1].toLowerCase();
+  return w[0].toUpperCase() + w.slice(1);
 }
 
 // ~1.1 km grid square, used when OpenStreetMap has no neighborhood name.
@@ -83,119 +180,6 @@ async function reverseGeocode(lat, lon) {
     areaKey,
     areaName: local && city ? `${local}, ${city}` : null,
   };
-}
-
-// How we pick landmarks:
-// 1. Pull up to 50 geotagged Wikipedia articles within 10 km (the API maximum), so
-//    sparse suburbs still reach real sights instead of stopping at the nearest 15.
-// 2. Drop things a tour guide wouldn't point at, using each article's short
-//    description: companies, schools, transit stops, roads, and the town or
-//    neighborhood articles themselves (the area tour already covers those).
-// 3. Rank by how notable the article is (Wikipedia page views over 30 days),
-//    nudged up for sightseeing types (museums, parks, historic sites) and
-//    discounted by walking distance, then keep the best 10.
-const MAX_LANDMARKS = 10;
-const SEARCH_RADIUS_M = 10000;
-
-// Matched against the Wikipedia short description, e.g. "American video game company".
-const SKIP = [
-  /\b(company|corporation|conglomerate|manufacturer|developer|subsidiary|startup|brand|retailer|chain|franchise|bank|firm|publisher|software|website|newspaper|magazine|record label)\b/i,
-  /\b(school district|school|elementary|kindergarten|preschool|academy)\b/i,
-  /\b(station|stop|bus route|bus line|transit|interchange|exit|freeway|highway|expressway|road|street|avenue|boulevard|route)\b/i,
-  /\b(radio|television|tv) (station|channel|network)\b/i,
-  /\b(hospital|clinic|medical center|fire department|police department|post office|water district|sanitary district|school board)\b/i,
-  /^(city|town|village|hamlet|borough|neighbou?rhood|suburb|census[- ]designated place|unincorporated community|human settlement|county|district|area|region|locality|community|place|municipality|ward|quarter)\b/i,
-  /\b(neighbou?rhood|census[- ]designated place|unincorporated community) (in|of)\b/i,
-  /\b(person|politician|businessman|businesswoman|athlete|footballer|actor|actress|singer|american (man|woman))\b/i,
-];
-// A historic building can still be a school or station; keep those.
-const HISTORIC = /\b(historic|national register|landmark|heritage|former|ruins?|monument)\b/i;
-const SIGHTS = /\b(museum|gallery|park|garden|arboretum|zoo|aquarium|beach|lake|lagoon|marsh|wetland|preserve|trail|hill|mountain|peak|island|bridge|pier|lighthouse|tower|castle|palace|fort|mission|church|cathedral|basilica|chapel|temple|shrine|mosque|synagogue|monastery|abbey|monument|memorial|statue|plaza|square|theat(er|re)|opera|concert hall|stadium|racetrack|arena|library|university|college|observatory|mansion|estate|house|historic|landmark|national register|heritage|ruins?|cemetery|market|waterfront)\b/i;
-const MEH = /\b(shopping (mall|center|centre)|mall|office|building|apartment|hotel|restaurant|store|supermarket|golf course|sports? (facility|complex))\b/i;
-
-export function landmarkScore({ description = "", views = null, distance = null }) {
-  const desc = description || "";
-  if (SKIP.some((re) => re.test(desc)) && !HISTORIC.test(desc)) return null;
-  // Page views per day on a log scale: 1/day ~0.3, 10/day 1, 100/day 2, 1000/day 3.
-  // Missing view data counts as a modest 10/day rather than zero.
-  let score = Math.log10((views ?? 300) / 30 + 1);
-  if (SIGHTS.test(desc)) score += 0.8;
-  else if (MEH.test(desc)) score -= 0.4;
-  // Halve the appeal at ~2.5 km; nearby still wins between equally famous places.
-  const km = (distance ?? 2500) / 1000;
-  return score / (1 + (km / 2.5) ** 2);
-}
-
-async function nearbyLandmarks(lat, lon) {
-  // Call 1: candidates with short descriptions, page views and coordinates.
-  const params = new URLSearchParams({
-    action: "query",
-    format: "json",
-    formatversion: "2",
-    origin: "*",
-    generator: "geosearch",
-    ggscoord: `${lat}|${lon}`,
-    ggsradius: String(SEARCH_RADIUS_M),
-    ggslimit: "50",
-    prop: "coordinates|description|pageviews",
-    colimit: "max",
-    pvipdays: "30",
-  });
-  const d = await getJson(`https://en.wikipedia.org/w/api.php?${params}`);
-  const ranked = (d.query?.pages || [])
-    .map((p) => {
-      const c = p.coordinates?.[0];
-      const daily = p.pageviews ? Object.values(p.pageviews).filter((v) => v != null) : [];
-      const distance = c ? Math.round(dist(lat, lon, c.lat, c.lon)) : null;
-      const cand = {
-        pageid: p.pageid,
-        title: p.title,
-        description: p.description || "",
-        lat: c?.lat ?? null,
-        lon: c?.lon ?? null,
-        distance,
-        views: daily.length ? daily.reduce((a, b) => a + b, 0) : null,
-      };
-      return { ...cand, score: landmarkScore(cand) };
-    })
-    .filter((c) => c.score != null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, MAX_LANDMARKS);
-  if (!ranked.length) return [];
-
-  // Call 2: intro text, photo and URL for just the winners.
-  const details = new URLSearchParams({
-    action: "query",
-    format: "json",
-    formatversion: "2",
-    origin: "*",
-    pageids: ranked.map((c) => c.pageid).join("|"),
-    prop: "extracts|pageimages|info",
-    inprop: "url",
-    exintro: "1",
-    explaintext: "1",
-    exsentences: "3",
-    exlimit: "max",
-    piprop: "thumbnail",
-    pithumbsize: "900",
-    pilimit: "max",
-  });
-  const byId = new Map();
-  try {
-    const dd = await getJson(`https://en.wikipedia.org/w/api.php?${details}`);
-    for (const p of dd.query?.pages || []) byId.set(p.pageid, p);
-  } catch (err) {
-    console.error("landmark details lookup failed", err.message);
-  }
-  return ranked.map(({ score, views, ...c }) => {
-    const p = byId.get(c.pageid) || {};
-    return {
-      ...c,
-      extract: p.extract || c.description || "",
-      thumbnail: photoUrl(p.thumbnail),
-      url: p.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(c.title.replace(/ /g, "_"))}`,
-    };
-  });
 }
 
 // Wikipedia's "page image" is sometimes a logo, seal, flag or locator map rather
@@ -287,12 +271,8 @@ function mockPlace() {
     area: "Sample City",
     areaKey: "osm:xx/sample-city/old-harbor",
     areaName: "Old Harbor, Sample City",
-    landmarks: [
-      { pageid: 9001, title: "Old Town Hall", extract: "A 17th-century civic building that still hosts the city council. Its clock tower was rebuilt after a fire in 1842.", thumbnail: null, url: "https://en.wikipedia.org", lat: 48.851, lon: 2.291, distance: 120 },
-      { pageid: 9002, title: "Riverside Cathedral", extract: "A Gothic cathedral on the river, begun in the 13th century and finished two hundred years later.", thumbnail: null, url: "https://en.wikipedia.org", lat: 48.853, lon: 2.294, distance: 450 },
-      { pageid: 9003, title: "Harbor Lighthouse", extract: "A striped lighthouse at the end of the harbor wall, lit every night since 1871.", thumbnail: null, url: "https://en.wikipedia.org", lat: 48.846, lon: 2.297, distance: 820 },
-      { pageid: 9004, title: "Market Hall", extract: "A covered iron-and-glass market from 1889, now full of food stalls.", thumbnail: null, url: "https://en.wikipedia.org", lat: 48.848, lon: 2.288, distance: 610 },
-    ],
+    source: "mock",
+    spots: mockSpots(),
   };
 }
 
