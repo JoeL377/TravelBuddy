@@ -1,7 +1,7 @@
 {
   "name": "travelbuddy",
   "version": "0.1.0",
-  "description": "A virtual tour guide: history and landmarks wherever you are.",
+  "description": "A pocket food guide: the food story and best places to eat wherever you are.",
   "main": "server.js",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",

@@ -1,7 +1,7 @@
 {
   "name": "TravelBuddy",
   "short_name": "TravelBuddy",
-  "description": "Your pocket tour guide: the story and landmarks around you, in quick swipes.",
+  "description": "Your pocket food guide: what the neighborhood eats and where to go, in quick swipes.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

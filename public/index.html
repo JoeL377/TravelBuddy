@@ -46,8 +46,8 @@
     <div class="welcome-art" id="welcomeArt"></div>
     <div class="welcome-inner stagger">
       <h1 class="wordmark serif">Travel<i>Buddy</i></h1>
-      <p>Every street has a story. Open your pocket guide and hear it, right where you're standing.</p>
-      <button id="locateBtn" class="btn primary"><svg class="icon sm"><use href="#i-locate"/></svg><span>Explore near me</span></button>
+      <p>Florence, one plate at a time. Hear what the city eats, and where to go hungry, from the trattorias to the Michelin stars.</p>
+      <button id="locateBtn" class="btn primary"><svg class="icon sm"><use href="#i-locate"/></svg><span>Find food near me</span></button>
       <button class="ghost-search" data-open-search><svg class="icon sm"><use href="#i-search"/></svg>Search any place</button>
       <p id="startError" class="error" hidden></p>
     </div>
@@ -63,21 +63,22 @@
       </header>
       <button class="searchpill" data-open-search aria-label="Change place">
         <svg class="icon sm"><use href="#i-search"/></svg>
-        <div class="txt"><div class="t" id="pillTitle">Finding you…</div><div class="s" id="pillSub">Locating nearby stories</div></div>
+        <div class="txt"><div class="t" id="pillTitle">Finding you…</div><div class="s" id="pillSub">Looking for good food nearby</div></div>
         <span class="loc" id="hereBtn" role="button" aria-label="Use my location"><svg class="icon sm"><use href="#i-locate"/></svg></span>
       </button>
       <div id="storiesRow" class="stories-row" aria-label="Stories"></div>
       <div id="heroWrap"></div>
       <div class="section guide-section">
-        <div class="section-head"><h2>Your guide</h2><button class="link" data-story="tour" id="guidePlay">Play as story</button></div>
+        <div class="section-head"><h2>What's cooking here</h2><button class="link" data-story="tour" id="guidePlay">Play as story</button></div>
         <div id="guide" class="guide" aria-live="polite"></div>
       </div>
       <div class="section">
-        <div class="section-head"><h2>Landmarks nearby</h2><span class="muted" id="lmCount"></span></div>
+        <div class="section-head"><h2>Where to eat nearby</h2><span class="muted" id="lmCount"></span></div>
         <div id="rail" class="rail"></div>
+        <div class="muted source-note" id="sourceNote"></div>
       </div>
       <div class="section">
-        <div class="section-head"><h2>Travelers are asking</h2><button class="link" data-goto="ask">See all</button></div>
+        <div class="section-head"><h2>People nearby are asking</h2><button class="link" data-goto="ask">See all</button></div>
         <div id="previewQa" class="preview-list feed"></div>
       </div>
     </section>
@@ -85,7 +86,7 @@
     <!-- Ask -->
     <section id="view-ask" class="view with-composer" hidden>
       <header class="topbar"><h1>Ask the guide</h1></header>
-      <div class="muted" style="padding: 0 16px; font-size: 14px" id="askSub">Questions from travelers near here</div>
+      <div class="muted" style="padding: 0 16px; font-size: 14px" id="askSub">Food questions from people near here</div>
       <div id="chips" class="chips"></div>
       <div id="feed" class="feed"></div>
     </section>
@@ -97,7 +98,7 @@
     </section>
 
     <form id="composer" class="composer" hidden autocomplete="off">
-      <input id="question" maxlength="500" placeholder="Ask anything about this place…" aria-label="Your question" enterkeyhint="send" />
+      <input id="question" maxlength="500" placeholder="Ask about food around here…" aria-label="Your question" enterkeyhint="send" />
       <button class="send" id="askBtn" aria-label="Send"><svg class="icon sm"><use href="#i-send"/></svg></button>
     </form>
 
@@ -131,7 +132,7 @@
   </section>
 
   <!-- Landmark detail -->
-  <section id="detail" class="layer detail" hidden aria-label="Landmark"></section>
+  <section id="detail" class="layer detail" hidden aria-label="Place to eat"></section>
 
   <!-- Search -->
   <section id="search" class="layer search-layer" hidden aria-label="Search">
