@@ -1,0 +1,587 @@
+{
+ "trattoria-mario": [
+  "Trattoria Mario",
+  "Da Mario",
+  "Trattoria da Mario"
+ ],
+ "all-antico-vinaio": [
+  "All'Antico Vinaio",
+  "Antico Vinaio",
+  "Antico Vinao",
+  "Vinaio"
+ ],
+ "osteria-santo-spirito": [
+  "Osteria Santo Spirito",
+  "Osteria di Santo Spirito"
+ ],
+ "trattoria-sabatino": [
+  "Sabatino",
+  "Trattoria Sabatino"
+ ],
+ "la-giostra": [
+  "La Giostra",
+  "Giostra"
+ ],
+ "enoteca-pinchiorri": [
+  "Pinchiorri",
+  "Enoteca Pinchiorri"
+ ],
+ "il-latini": [
+  "Il Latini",
+  "Latini"
+ ],
+ "gusta-pizza": [
+  "Gusta Pizza",
+  "Gustapizza"
+ ],
+ "gusta-osteria": [
+  "Gusta Osteria"
+ ],
+ "la-menagere": [
+  "La Menagere",
+  "Menagere"
+ ],
+ "trattoria-dall-oste": [
+  "Dall'Oste",
+  "Dall Oste",
+  "Trattoria dall'Oste"
+ ],
+ "buca-mario": [
+  "Buca Mario"
+ ],
+ "trattoria-zaza": [
+  "Zaza",
+  "Za Za",
+  "Trattoria ZaZa",
+  "Zà Zà"
+ ],
+ "mercato-centrale": [
+  "Mercato Centrale",
+  "Central Market"
+ ],
+ "da-nerbone": [
+  "Nerbone",
+  "Da Nerbone"
+ ],
+ "trattoria-cammillo": [
+  "Cammillo",
+  "Camillo",
+  "Trattoria Cammillo"
+ ],
+ "trattoria-sostanza": [
+  "Sostanza",
+  "Il Sostanza",
+  "Trattoria Sostanza"
+ ],
+ "buca-lapi": [
+  "Buca Lapi"
+ ],
+ "trattoria-4-leoni": [
+  "4 Leoni",
+  "Quattro Leoni",
+  "4 Lions"
+ ],
+ "il-santo-bevitore": [
+  "Santo Bevitore",
+  "Il Santo Bevitore"
+ ],
+ "il-santino": [
+  "Il Santino",
+  "Santino"
+ ],
+ "trattoria-cibreo": [
+  "Cibreo",
+  "Cibrèo",
+  "Cibreino",
+  "Trattoria Cibreo",
+  "Caffe Cibreo"
+ ],
+ "ora-d-aria": [
+  "Ora d'Aria",
+  "Ora D Aria"
+ ],
+ "trattoria-gargani": [
+  "Gargani"
+ ],
+ "osteria-dell-enoteca": [
+  "Osteria dell'Enoteca"
+ ],
+ "osteria-del-cinghiale-bianco": [
+  "Cinghiale Bianco"
+ ],
+ "trattoria-garga": [
+  "Garga",
+  "Trattoria Garga"
+ ],
+ "trattoria-coco-lezzone": [
+  "Coco Lezzone"
+ ],
+ "trattoria-da-burde": [
+  "Burde",
+  "Da Burde"
+ ],
+ "trattoria-del-carmine": [
+  "Trattoria del Carmine",
+  "Del Carmine"
+ ],
+ "trattoria-da-ruggero": [
+  "Ruggero",
+  "Da Ruggero"
+ ],
+ "trattoria-sergio-gozzi": [
+  "Sergio Gozzi",
+  "Gozzi"
+ ],
+ "trattoria-palle-d-oro": [
+  "Palle d'Oro",
+  "Palle D Oro"
+ ],
+ "trattoria-anita": [
+  "Trattoria Anita",
+  "Da Anita"
+ ],
+ "trattoria-da-que-ragazzi": [
+  "Que Ragazzi"
+ ],
+ "trattoria-i-due-g": [
+  "I Due G",
+  "Due G"
+ ],
+ "trattoria-pandemonio": [
+  "Pandemonio"
+ ],
+ "trattoria-bordino": [
+  "Bordino"
+ ],
+ "trattoria-da-tito": [
+  "Da Tito",
+  "Trattoria Tito"
+ ],
+ "trattoria-dante": [
+  "Trattoria Dante"
+ ],
+ "trattoria-da-rocco": [
+  "Da Rocco"
+ ],
+ "trattoria-casalinga": [
+  "Casalinga",
+  "Trattoria Casalinga"
+ ],
+ "trattoria-1950": [
+  "Trattoria 1950"
+ ],
+ "trattoria-la-casalinga-dei-tintori": [
+  "Tintori"
+ ],
+ "il-guscio": [
+  "Il Guscio"
+ ],
+ "osteria-vini-e-vecchi-sapori": [
+  "Vini e Vecchi Sapori",
+  "Vini e Vecchi"
+ ],
+ "osteria-pastella": [
+  "Pastella"
+ ],
+ "acqua-al-2": [
+  "Acqua al 2",
+  "Acqua Al Due",
+  "Acqua al Due"
+ ],
+ "osteria-dei-centopoveri": [
+  "Centopoveri",
+  "Cento Poveri"
+ ],
+ "osteria-tripperia-il-magazzino": [
+  "Il Magazzino",
+  "Tripperia il Magazzino",
+  "Osteria Il Magazzino"
+ ],
+ "osteria-dell-acquacheta": [
+  "Acquacheta"
+ ],
+ "osteria-antica-mescita-san-niccolo": [
+  "Antica Mescita",
+  "Mescita San Niccolo"
+ ],
+ "osteria-del-porcospino": [
+  "Porcospino"
+ ],
+ "osteria-caffe-italiano": [
+  "Caffe Italiano",
+  "Osteria del Caffe Italiano"
+ ],
+ "osteria-pepo": [
+  "Osteria Pepò"
+ ],
+ "osteria-dell-ortolano": [
+  "Ortolano"
+ ],
+ "osteria-tornabuoni": [
+  "Osteria Tornabuoni"
+ ],
+ "osteria-dei-baroncelli": [
+  "Baroncelli"
+ ],
+ "le-volpi-e-l-uva": [
+  "Volpi e l'Uva",
+  "Le Volpi",
+  "Volpi e L Uva"
+ ],
+ "il-santo-graal": [
+  "Santo Graal"
+ ],
+ "i-fratellini": [
+  "Fratellini",
+  "I Fratellini"
+ ],
+ "da-vinattieri": [
+  "Vinattieri"
+ ],
+ "panini-toscani": [
+  "Panini Toscani"
+ ],
+ "semel": [
+  "Semel"
+ ],
+ "sandwichic": [
+  "SandwiChic",
+  "Sandwichic"
+ ],
+ "lupen-and-margo": [
+  "Lupen",
+  "Lupen and Margo",
+  "Lupen e Margo"
+ ],
+ "mariano": [
+  "Da Mariano",
+  "Panini Mariano",
+  "Alimentari Mariano"
+ ],
+ "l-trippaio-di-firenze": [
+  "Trippaio"
+ ],
+ "sergio-pollini": [
+  "Sergio Pollini"
+ ],
+ "la-prosciutteria": [
+  "Prosciutteria"
+ ],
+ "mercato-sant-ambrogio": [
+  "Sant'Ambrogio",
+  "Sant Ambrogio"
+ ],
+ "zeb": [
+  "ZEB",
+  "Zeb",
+  "Zuppa e Bollito"
+ ],
+ "regina-bistecca": [
+  "Regina Bistecca"
+ ],
+ "bistecca-bistecchiere": [
+  "Bistecchiere"
+ ],
+ "trattoria-ponte-vecchio": [
+  "Trattoria Ponte Vecchio"
+ ],
+ "perseus": [
+  "Perseus",
+  "Ristorante Perseus"
+ ],
+ "il-cantinone": [
+  "Cantinone"
+ ],
+ "trattoria-marione": [
+  "Marione"
+ ],
+ "trattoria-icche-c-e-c-e": [
+  "Icche C'e C'e",
+  "Icche"
+ ],
+ "la-buchetta": [
+  "La Buchetta",
+  "Buchetta"
+ ],
+ "dal-barone": [
+  "Dal Barone"
+ ],
+ "trattoria-boboli": [
+  "Trattoria Boboli"
+ ],
+ "il-francescano": [
+  "Il Francescano"
+ ],
+ "trattoria-mamma-gina": [
+  "Mamma Gina"
+ ],
+ "golden-view": [
+  "Golden View"
+ ],
+ "la-carraia": [
+  "La Carraia",
+  "Carraia"
+ ],
+ "gelateria-dei-neri": [
+  "dei Neri",
+  "Gelateria dei Neri"
+ ],
+ "vivoli": [
+  "Vivoli"
+ ],
+ "gelateria-santa-trinita": [
+  "Santa Trinita gelato",
+  "Gelateria Santa Trinita"
+ ],
+ "sbrino": [
+  "Sbrino"
+ ],
+ "gelateria-della-passera": [
+  "della Passera",
+  "Passera"
+ ],
+ "perche-no": [
+  "Perche No",
+  "Perché No",
+  "Perche no!"
+ ],
+ "vivaldi-gelato": [
+  "Vivaldi"
+ ],
+ "edoardo": [
+  "Edoardo"
+ ],
+ "venchi": [
+  "Venchi"
+ ],
+ "rivareno": [
+  "Rivareno"
+ ],
+ "la-sorbettiera": [
+  "Sorbettiera"
+ ],
+ "badiani": [
+  "Badiani"
+ ],
+ "pasticceria-gualtieri": [
+  "Gualtieri"
+ ],
+ "ditta-artigianale": [
+  "Ditta Artigianale"
+ ],
+ "caffe-gilli": [
+  "Gilli"
+ ],
+ "rivoire": [
+  "Rivoire"
+ ],
+ "pasticceria-nencioni": [
+  "Nencioni"
+ ],
+ "forno-top": [
+  "Forno Top"
+ ],
+ "pugi": [
+  "Pugi",
+  "Forno Pugi"
+ ],
+ "pizzeria-o-vesuvio": [
+  "O' Vesuvio",
+  "O Vesuvio"
+ ],
+ "berberè": [
+  "Berbere",
+  "Berberè"
+ ],
+ "santarpia": [
+  "Santarpia"
+ ],
+ "il-pizzaiuolo": [
+  "Il Pizzaiuolo",
+  "Pizzaiuolo"
+ ],
+ "pizzeria-da-gherardo": [
+  "Gherardo"
+ ],
+ "sud": [
+  "Pizzeria Sud",
+  "SUD"
+ ],
+ "simbiosi": [
+  "Simbiosi"
+ ],
+ "la-divina-pizza": [
+  "Divina Pizza"
+ ],
+ "tre-soldi": [
+  "Tre Soldi",
+  "Trattoria Tre Soldi"
+ ],
+ "il-borro-tuscan-bistro": [
+  "Il Borro"
+ ],
+ "borgo-san-jacopo": [
+  "Borgo San Jacopo"
+ ],
+ "la-leggenda-dei-frati": [
+  "Leggenda dei Frati"
+ ],
+ "saporium": [
+  "Saporium"
+ ],
+ "gucci-osteria": [
+  "Gucci Osteria",
+  "Gucci Garden"
+ ],
+ "atto-di-vito-mollica": [
+  "Vito Mollica",
+  "Atto di Vito"
+ ],
+ "santa-elisabetta": [
+  "Santa Elisabetta"
+ ],
+ "il-palagio": [
+  "Il Palagio",
+  "Palagio"
+ ],
+ "harry-s-bar": [
+  "Harry's Bar"
+ ],
+ "osteria-di-passignano": [
+  "Passignano"
+ ],
+ "ristorante-il-paiolo": [
+  "Il Paiolo"
+ ],
+ "fishing-lab": [
+  "Fishing Lab"
+ ],
+ "konnubio": [
+  "Konnubio"
+ ],
+ "essenziale": [
+  "Essenziale",
+  "Simone Cipriani"
+ ],
+ "gurdulu": [
+  "Gurdulù",
+  "Gurdulu"
+ ],
+ "irene": [
+  "Ristorante Irene"
+ ],
+ "ristorante-accademia": [
+  "Ristorante Accademia"
+ ],
+ "ristorante-paoli": [
+  "Ristorante Paoli",
+  "Paoli"
+ ],
+ "cantina-barbagianni": [
+  "Barbagianni"
+ ],
+ "mangiafoco": [
+  "Mangiafoco"
+ ],
+ "eataly": [
+  "Eataly"
+ ],
+ "fiaschetteria-nuvoli": [
+  "Nuvoli"
+ ],
+ "enoteca-pitti-gola": [
+  "Pitti Gola"
+ ],
+ "il-goccino": [
+  "Goccino"
+ ],
+ "procacci": [
+  "Procacci"
+ ],
+ "fuori-porta": [
+  "Fuori Porta"
+ ],
+ "beppa-fioraia": [
+  "Beppa Fioraia",
+  "Beppa"
+ ],
+ "il-vinaio": [
+  "Il Vinaio"
+ ],
+ "la-bottega-del-buon-caffe": [
+  "Buon Caffe",
+  "Bottega del Buon Caffe"
+ ],
+ "buca-dell-orafo": [
+  "Buca dell'Orafo",
+  "Orafo"
+ ],
+ "trattoria-da-giorgio": [
+  "Da Giorgio",
+  "Trattoria Giorgio"
+ ],
+ "trattoria-da-garibardi": [
+  "Garibardi"
+ ],
+ "trattoria-guelfa": [
+  "Guelfa"
+ ],
+ "osteria-la-congrega": [
+  "Congrega"
+ ],
+ "tamerò": [
+  "Tamero",
+  "Tamerò"
+ ],
+ "olio-e-convivium": [
+  "Olio e Convivium",
+  "Convivium"
+ ],
+ "il-ristoro-dei-perditempo": [
+  "Perditempo"
+ ],
+ "trattoria-nella": [
+  "Trattoria Nella"
+ ],
+ "taverna-del-bronzino": [
+  "Bronzino"
+ ],
+ "lo-schiacciavino": [
+  "Schiacciavino"
+ ],
+ "antico-ristoro-di-cambi": [
+  "Cambi",
+  "Antico Ristoro di Cambi"
+ ],
+ "trattoria-angiolino": [
+  "Angiolino"
+ ],
+ "osteria-dei-pazzi": [
+  "Osteria dei Pazzi",
+  "dei Pazzi"
+ ],
+ "salumeria-verdi": [
+  "Salumeria Verdi",
+  "Pino's Sandwiches",
+  "Pino's"
+ ],
+ "osteria-cipolla-rossa": [
+  "Cipolla Rossa"
+ ],
+ "caffe-pitti": [
+  "Caffe Pitti"
+ ],
+ "la-loggia": [
+  "La Loggia"
+ ],
+ "obica": [
+  "Obica",
+  "Obicà"
+ ],
+ "toscanella-osteria": [
+  "Toscanella"
+ ],
+ "il-cernacchino": [
+  "Cernacchino"
+ ]
+}
