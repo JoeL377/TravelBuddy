@@ -30,11 +30,22 @@ async function lookup(lat, lon) {
     reverseGeocode(lat, lon).catch(() => null),
     nearbyLandmarks(lat, lon).catch(() => []),
   ]);
-  const areaImage = geo?.area ? await cityImage(geo.area, geo.state).catch(() => null) : null;
+  const [areaImage, areaPhotos] = await Promise.all([
+    geo?.area ? cityImage(geo.area, geo.state).catch(() => null) : null,
+    commonsPhotos(lat, lon, { radius: 1500, limit: 40, prefer: geo?.area }).catch(() => []),
+    // Landmarks whose article has no free lead photo: borrow a Commons photo
+    // taken right at the landmark, preferring one whose file name mentions it.
+    ...landmarks.filter((l) => !l.thumbnail && l.lat != null).map(async (l) => {
+      const [hit] = await commonsPhotos(l.lat, l.lon, { radius: 150, limit: 10, prefer: l.title, strict: true }).catch(() => []);
+      if (hit) l.thumbnail = hit;
+    }),
+  ]);
   return {
     label: geo?.label || landmarks[0]?.title || "Somewhere interesting",
     // Lead photo of the town's own Wikipedia article, for the tour cover.
     areaImage,
+    // More photos taken around here (Wikimedia Commons), for tour story cards.
+    areaPhotos: areaPhotos.filter((u) => u !== areaImage && !landmarks.some((l) => l.thumbnail === u)).slice(0, 8),
     area: geo?.area || null,
     // Everyone in the same neighborhood shares one generated tour.
     areaKey: geo?.areaKey || gridKey(lat, lon),
@@ -187,6 +198,43 @@ export function photoUrl(thumb) {
   if (!thumb?.source) return null;
   const file = decodeURIComponent(thumb.source.split("?")[0].split("/").pop() || "");
   return NOT_A_PHOTO.test(file) ? null : thumb.source;
+}
+
+// Wikimedia Commons: free, keyless, millions of geotagged photos. Returns photo
+// URLs nearest first; files whose name shares a word with `prefer` come first.
+// With `strict`, a photo that doesn't mention it must be within 60 m.
+async function commonsPhotos(lat, lon, { radius, limit, prefer = "", strict = false }) {
+  const params = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    origin: "*",
+    generator: "geosearch",
+    ggscoord: `${lat}|${lon}`,
+    ggsradius: String(radius),
+    ggsnamespace: "6",
+    ggslimit: String(limit),
+    prop: "imageinfo|coordinates",
+    colimit: "max",
+    iiprop: "url|mime",
+    iiurlwidth: "900",
+  });
+  const d = await getJson(`https://commons.wikimedia.org/w/api.php?${params}`);
+  const words = String(prefer).toLowerCase().replace(/\(.*?\)/g, "").split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+  return (d.query?.pages || [])
+    .map((p) => {
+      const ii = p.imageinfo?.[0];
+      const c = p.coordinates?.[0];
+      const name = p.title.toLowerCase();
+      return {
+        url: ii?.mime === "image/jpeg" && !NOT_A_PHOTO.test(p.title) ? ii.thumburl || ii.url : null,
+        named: words.some((w) => name.includes(w)),
+        d: c ? dist(lat, lon, c.lat, c.lon) : radius,
+      };
+    })
+    .filter((x) => x.url && (!strict || x.named || x.d <= 60))
+    .sort((a, b) => b.named - a.named || a.d - b.d)
+    .map((x) => x.url);
 }
 
 async function cityImage(city, state) {
