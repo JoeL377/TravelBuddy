@@ -13,7 +13,8 @@ export const DUOMO = { lat: 43.77310, lon: 11.25600 };
 // Further than this from the Duomo and you're "not in Florence".
 const IN_CITY_M = 12000;
 
-import { spendPlacesCall } from "./budget.js";
+import { spendPlacesCall, placesUsage } from "./budget.js";
+import { googlePhotoUrl } from "./food.js";
 
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY || "";
 const UA = `TravelBuddy/0.2 (food guide${process.env.CONTACT_EMAIL ? `; ${process.env.CONTACT_EMAIL}` : ""})`;
@@ -78,8 +79,11 @@ const resolved = new Map(); // id -> { lat, lon, google? }
 // Google details (rating, open now, photo references) are refreshed every 3 days.
 const LOOKUP_TTL_MS = 3 * 24 * 3600_000;
 
-export function initFlorence(s) {
+let classifyPhoto = null; // (imageUrl, placeTitle) -> "DISH" | "FOOD" | "DRINK" | "PLACE" | ...
+
+export function initFlorence(s, { classify = null } = {}) {
   store = s;
+  classifyPhoto = classify;
   if (!FLORENCE_MODE) return;
   for (const c of CURATED) {
     const saved = store.getValue(`geo:${c.id}`);
@@ -110,7 +114,7 @@ function resolveAll() {
       }
       if (!GOOGLE_KEY) await new Promise((r) => setTimeout(r, 1100));
     }
-  })().finally(() => { resolving = null; });
+  })().finally(() => { resolving = null; pickFoodPhotos().catch((err) => console.error("food photo picking failed", err.message)); });
   return resolving;
 }
 // Check twice a day for places whose Google details are due for a refresh.
@@ -152,9 +156,9 @@ async function googleLookup(c) {
       openNow: p.currentOpeningHours?.openNow ?? null,
       mapsUrl: p.googleMapsUri || null,
       website: p.websiteUri || null,
-      thumbnail: pick ? `/api/food-photo?ref=${encodeURIComponent(pick.name)}` : null,
-      photoCredit: pick?.authorAttributions?.[0]?.displayName || null,
-      gallery: photos.slice(0, 6).map((ph) => ({ url: `/api/food-photo?ref=${encodeURIComponent(ph.name)}`, credit: ph.authorAttributions?.[0]?.displayName || null })),
+      // All candidate photos; pickFoodPhotos() chooses the one that shows a dish.
+      photos: photos.map((ph) => ({ name: ph.name, credit: ph.authorAttributions?.[0]?.displayName || null })),
+      fallbackIndex: photos.indexOf(pick),
     },
   };
 }
@@ -195,9 +199,7 @@ export function florenceSpots(lat, lon, { mock = false, nearest = inFlorence(lat
       website: g.website || null,
       mapsUrl,
       url: mapsUrl,
-      thumbnail: g.thumbnail || r?.photo || null,
-      photoCredit: g.photoCredit || r?.photoCredit || null,
-      gallery: g.gallery || [],
+      ...photoFor(c.id, g, r),
       lat: r?.lat ?? null,
       lon: r?.lon ?? null,
       distance: r ? Math.round(dist(lat, lon, r.lat, r.lon)) : null,
@@ -209,6 +211,73 @@ export function florenceSpots(lat, lon, { mock = false, nearest = inFlorence(lat
   spots.sort(here ? (a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9) : (a, b) => a.order_i - b.order_i);
   return spots.map(({ order_i, ...s }) => s);
 }
+
+// --- Food photos ---------------------------------------------------------
+// Google's first photo of a restaurant is usually the dining room or the
+// front door. A food guide should lead with a dish, so a small vision model
+// looks at each place's Google photos in order until it finds a plate of food,
+// and that choice is remembered (as its position in Google's list and its
+// photographer) for 30 days. Looking costs one Places photo call per photo, so
+// it stops while today's Google allowance is nearly spent and carries on
+// tomorrow, always leaving PHOTO_RESERVE calls for serving visitors.
+const PICK_TTL_MS = 30 * 24 * 3600_000;
+const PHOTO_RESERVE = 25;
+const RANK = { DISH: 3, FOOD: 2, DRINK: 1 };
+
+const choiceOf = (id) => {
+  try { return JSON.parse(store?.getValue(`foodphoto:${id}`) || "null"); } catch { return null; }
+};
+// A remembered choice still applies if the same photographer's photo is at that position.
+const choiceValid = (ch, photos) => ch && ch.index != null && photos[ch.index] && photos[ch.index].credit === ch.credit;
+
+function photoFor(id, g, r) {
+  const photos = g.photos || [];
+  const ch = choiceOf(id);
+  const i = choiceValid(ch, photos) ? ch.index : g.fallbackIndex >= 0 ? g.fallbackIndex : 0;
+  const ph = photos[i];
+  if (ph) return { thumbnail: `/api/food-photo?ref=${encodeURIComponent(ph.name)}`, photoCredit: ph.credit, photoKind: choiceValid(ch, photos) ? ch.kind : null };
+  return { thumbnail: r?.photo || null, photoCredit: r?.photoCredit || null, photoKind: null };
+}
+
+let picking = false;
+export async function pickFoodPhotos() {
+  if (!classifyPhoto || !GOOGLE_KEY || picking) return;
+  picking = true;
+  try {
+    for (const c of CURATED) {
+      const photos = resolved.get(c.id)?.google?.photos;
+      if (!photos?.length) continue;
+      let ch = choiceOf(c.id);
+      if (choiceValid(ch, photos) && Date.now() - ch.at < PICK_TTL_MS) continue;
+      // Google's list changed (or the pick is old): look again from scratch.
+      if (ch && (ch.index != null || ch.count !== photos.length || Date.now() - ch.at >= PICK_TTL_MS)) ch = null;
+      const seen = ch?.seen || {}; // position -> verdict, kept across days while unfinished
+      for (let i = 0; i < photos.length; i++) {
+        if (seen[i]) continue;
+        const { used, limit } = placesUsage();
+        if (used >= limit - PHOTO_RESERVE) return; // carry on tomorrow
+        const url = await googlePhotoUrl(photos[i].name);
+        if (!url) return;
+        const verdict = await classifyPhoto(url, c.title);
+        if (!verdict) return;
+        seen[i] = verdict;
+        console.log(`food photo ${c.title} #${i}: ${seen[i]}`);
+        store.setValue(`foodphoto:${c.id}`, JSON.stringify({ seen, count: photos.length, at: Date.now() }));
+        if (seen[i] === "DISH") break;
+      }
+      // Best verdict wins; earlier photos win ties. If nothing shows food, keep Google's first photo.
+      const best = Object.entries(seen).map(([i, v]) => ({ i: Number(i), r: RANK[v] || 0, v })).sort((a, b) => b.r - a.r || a.i - b.i)[0];
+      const done = seen[best?.i] === "DISH" || Object.keys(seen).length === photos.length;
+      if (!done) continue;
+      const index = best && best.r > 0 ? best.i : 0;
+      store.setValue(`foodphoto:${c.id}`, JSON.stringify({ index, credit: photos[index].credit, kind: best?.r > 0 ? best.v : null, seen, count: photos.length, at: Date.now() }));
+    }
+  } finally {
+    picking = false;
+  }
+}
+// Resume unfinished picks a few times a day (each run stops at the reserve).
+setInterval(() => { if (FLORENCE_MODE) pickFoodPhotos().catch(() => {}); }, 4 * 3600_000).unref();
 
 // Without a Google key, photos come from Wikimedia Commons near each address;
 // places.js fills this in once coordinates are known.
