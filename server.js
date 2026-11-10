@@ -292,10 +292,9 @@ function friendlyError(err) {
 }
 
 // --- Food photo check ----------------------------------------------------
-// Decides whether a restaurant photo shows a dish (what a food guide should
-// lead with) or the room, the front door, people or a menu. Small and cheap.
+// Says what a restaurant photo shows (a dish, the room, people, a menu...) and
+// scores how good it would look as a full-screen cover. Small and cheap.
 const PHOTO_MODEL = process.env.PHOTO_MODEL || "claude-haiku-5-5";
-const PHOTO_KINDS = ["DISH", "FOOD", "DRINK", "PLACE", "PEOPLE", "MENU", "OTHER"];
 
 async function classifyPhoto(url, title) {
   try {
@@ -311,20 +310,24 @@ async function classifyPhoto(url, title) {
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: type, data } },
-          { type: "text", text: `This photo is from the Google Maps listing of ${title}, a restaurant in Florence. We want to show a photo of the food.
-Reply with one word:
-DISH if a plate or bowl of food is the main subject, close and appetizing;
+          { type: "text", text: `This photo is from the Google Maps listing of ${title}, a restaurant in Florence. We are choosing the cover photo for this restaurant in a food guide app, shown full screen on a phone. We want the most beautiful photo of the food.
+First, say what the photo mainly shows, as one word:
+DISH if a plate or bowl of food is the main subject;
 FOOD if food is visible but small, far away or not the main subject;
 DRINK if a drink or wine is the main subject;
 PLACE if it mostly shows the dining room, building, terrace, kitchen or view;
 PEOPLE if people are the main subject;
 MENU if it shows a menu, sign or text;
-OTHER otherwise.` },
+OTHER otherwise.
+Then score it from 1 to 10 as a cover photo: 10 is a sharp, well-lit, close, beautifully plated shot a magazine would print; 5 is a decent phone snapshot; 1 is blurry, dark, cluttered, half-eaten or awkwardly cropped. Take off points for flash glare, harsh shadows, people's hands or faces, watermarks and text overlays.
+Reply in exactly this form: KIND SCORE (for example: DISH 7).` },
         ],
       }],
     });
-    const word = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("").trim().toUpperCase().match(/[A-Z]+/)?.[0];
-    return PHOTO_KINDS.includes(word) ? word : "OTHER";
+    const text = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("").toUpperCase();
+    const m = text.match(/\b(DISH|FOOD|DRINK|PLACE|PEOPLE|MENU|OTHER)\b\D*(10|[1-9])?/);
+    if (!m) return { kind: "OTHER", score: 0 };
+    return { kind: m[1], score: m[2] ? Number(m[2]) : 5 };
   } catch (err) {
     console.error("photo check failed", title, err.message);
     return null; // try again later rather than writing the photo off

@@ -214,29 +214,46 @@ export function florenceSpots(lat, lon, { mock = false, nearest = inFlorence(lat
 
 // --- Food photos ---------------------------------------------------------
 // Google's first photo of a restaurant is usually the dining room or the
-// front door. A food guide should lead with a dish, so a small vision model
-// looks at each place's Google photos in order until it finds a plate of food,
-// and that choice is remembered (as its position in Google's list and its
-// photographer) for 30 days. Looking costs one Places photo call per photo, so
-// it stops while today's Google allowance is nearly spent and carries on
-// tomorrow, always leaving PHOTO_RESERVE calls for serving visitors.
+// front door, and the first food photo isn't always a good one. So a vision
+// model looks at every Google photo of each place (Google gives at most 10)
+// and scores it as a full-screen cover: is it a dish, is it sharp, well lit,
+// close and appetizing. The best-scoring dish wins. The choice is remembered
+// (as its position in Google's list and its photographer) for 30 days.
+// Looking costs one Places photo call per photo, so it pauses while today's
+// Google allowance is nearly spent and carries on later, always leaving
+// PHOTO_RESERVE calls for serving visitors. Until a place's new pick is
+// finished, it keeps showing its previous pick.
 const PICK_TTL_MS = 30 * 24 * 3600_000;
 const PHOTO_RESERVE = 25;
-const RANK = { DISH: 3, FOOD: 2, DRINK: 1 };
+const PICK_KEY = (id) => `foodpick2:${id}`;
+// How much each kind of photo is worth as a cover, on top of its 1-10 score.
+const KIND_BONUS = { DISH: 0, FOOD: -2, DRINK: -3 };
 
-const choiceOf = (id) => {
-  try { return JSON.parse(store?.getValue(`foodphoto:${id}`) || "null"); } catch { return null; }
+const readJson = (key) => {
+  try { return JSON.parse(store?.getValue(key) || "null"); } catch { return null; }
 };
 // A remembered choice still applies if the same photographer's photo is at that position.
 const choiceValid = (ch, photos) => ch && ch.index != null && photos[ch.index] && photos[ch.index].credit === ch.credit;
+// The scored pick if finished, else the earlier first-dish pick.
+const currentChoice = (id, photos) => [readJson(PICK_KEY(id)), readJson(`foodphoto:${id}`)].find((ch) => choiceValid(ch, photos)) || null;
 
 function photoFor(id, g, r) {
   const photos = g.photos || [];
-  const ch = choiceOf(id);
-  const i = choiceValid(ch, photos) ? ch.index : g.fallbackIndex >= 0 ? g.fallbackIndex : 0;
+  const ch = currentChoice(id, photos);
+  const i = ch ? ch.index : g.fallbackIndex >= 0 ? g.fallbackIndex : 0;
   const ph = photos[i];
-  if (ph) return { thumbnail: `/api/food-photo?ref=${encodeURIComponent(ph.name)}`, photoCredit: ph.credit, photoKind: choiceValid(ch, photos) ? ch.kind : null };
-  return { thumbnail: r?.photo || null, photoCredit: r?.photoCredit || null, photoKind: null };
+  if (ph) return { thumbnail: `/api/food-photo?ref=${encodeURIComponent(ph.name)}`, photoCredit: ph.credit, photoKind: ch?.kind || null, photoScore: ch?.score ?? null };
+  return { thumbnail: r?.photo || null, photoCredit: r?.photoCredit || null, photoKind: null, photoScore: null };
+}
+
+export function bestPhoto(seen) {
+  let best = null;
+  for (const [i, v] of Object.entries(seen)) {
+    if (!(v.kind in KIND_BONUS)) continue;
+    const value = v.score + KIND_BONUS[v.kind];
+    if (!best || value > best.value || (value === best.value && Number(i) < best.i)) best = { i: Number(i), value, ...v };
+  }
+  return best;
 }
 
 let picking = false;
@@ -247,30 +264,27 @@ export async function pickFoodPhotos() {
     for (const c of CURATED) {
       const photos = resolved.get(c.id)?.google?.photos;
       if (!photos?.length) continue;
-      let ch = choiceOf(c.id);
+      let ch = readJson(PICK_KEY(c.id));
       if (choiceValid(ch, photos) && Date.now() - ch.at < PICK_TTL_MS) continue;
       // Google's list changed (or the pick is old): look again from scratch.
       if (ch && (ch.index != null || ch.count !== photos.length || Date.now() - ch.at >= PICK_TTL_MS)) ch = null;
-      const seen = ch?.seen || {}; // position -> verdict, kept across days while unfinished
+      const seen = ch?.seen || {}; // position -> { kind, score }, kept across days while unfinished
       for (let i = 0; i < photos.length; i++) {
         if (seen[i]) continue;
         const { used, limit } = placesUsage();
-        if (used >= limit - PHOTO_RESERVE) return; // carry on tomorrow
+        if (used >= limit - PHOTO_RESERVE) return; // carry on later
         const url = await googlePhotoUrl(photos[i].name);
         if (!url) return;
         const verdict = await classifyPhoto(url, c.title);
         if (!verdict) return;
         seen[i] = verdict;
-        console.log(`food photo ${c.title} #${i}: ${seen[i]}`);
-        store.setValue(`foodphoto:${c.id}`, JSON.stringify({ seen, count: photos.length, at: Date.now() }));
-        if (seen[i] === "DISH") break;
+        console.log(`food photo ${c.title} #${i}: ${verdict.kind} ${verdict.score}`);
+        store.setValue(PICK_KEY(c.id), JSON.stringify({ seen, count: photos.length, at: Date.now() }));
       }
-      // Best verdict wins; earlier photos win ties. If nothing shows food, keep Google's first photo.
-      const best = Object.entries(seen).map(([i, v]) => ({ i: Number(i), r: RANK[v] || 0, v })).sort((a, b) => b.r - a.r || a.i - b.i)[0];
-      const done = seen[best?.i] === "DISH" || Object.keys(seen).length === photos.length;
-      if (!done) continue;
-      const index = best && best.r > 0 ? best.i : 0;
-      store.setValue(`foodphoto:${c.id}`, JSON.stringify({ index, credit: photos[index].credit, kind: best?.r > 0 ? best.v : null, seen, count: photos.length, at: Date.now() }));
+      // Every photo scored: keep the best food shot, or Google's first photo if none shows food.
+      const best = bestPhoto(seen);
+      const index = best ? best.i : 0;
+      store.setValue(PICK_KEY(c.id), JSON.stringify({ index, credit: photos[index].credit, kind: best?.kind || null, score: best?.score ?? null, seen, count: photos.length, at: Date.now() }));
     }
   } finally {
     picking = false;
