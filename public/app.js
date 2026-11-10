@@ -405,9 +405,10 @@ function bgFor(card, i) {
   const short = (t) => t.replace(/\s*\(.*\)$/, "").split(",")[0].toLowerCase();
   const named = lms.find((l) => text.includes(l.title.toLowerCase()) || (short(l.title).length > 4 && text.includes(short(l.title))));
   if (named) return photo(named);
-  // Cards about the area itself get the town's photo first, then illustrations,
-  // never an unrelated landmark's picture.
-  if (i === 0 && S.place?.areaImage) return S.place.areaImage;
+  // Cards about the area itself get the town's photo, then other photos taken
+  // around here, never an unrelated landmark's picture.
+  const pics = [S.place?.areaImage, ...(S.place?.areaPhotos || [])].filter(Boolean);
+  if (pics.length) return pics[i % pics.length];
   return art(`${placeParts().name}-${i}`);
 }
 
