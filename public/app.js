@@ -77,32 +77,131 @@ function parseCards(text) {
 }
 
 // ---------- navigation ----------
-function showTab(name) {
+const root = document.documentElement;
+const tabScroll = {}; // each tab remembers how far down you were
+
+// top: true starts the tab at the top (a new place, a new question) instead of where you left it.
+function showTab(name, { top = false } = {}) {
+  if (name !== S.tab) tabScroll[S.tab] = window.scrollY;
   S.tab = name;
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   for (const v of ["explore", "ask", "saved"]) $(`view-${v}`).hidden = v !== name;
   $("composer").hidden = name !== "ask";
+  root.classList.toggle("on-ask", name === "ask");
   if (name === "ask") $("qaBadge").hidden = true;
   if (name === "saved") renderSaved();
-  window.scrollTo(0, 0);
+  window.scrollTo(0, top ? 0 : tabScroll[name] || 0);
 }
-document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
+const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+  // Tapping the tab you're already on scrolls back to the top, like a native app.
+  if (t.dataset.tab === S.tab) toTop();
+  else showTab(t.dataset.tab);
+}));
+document.querySelectorAll(".topbar").forEach((t) => t.addEventListener("click", (e) => { if (!e.target.closest("button")) toTop(); }));
+addEventListener("scroll", () => root.classList.toggle("scrolled", window.scrollY > 4), { passive: true });
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+// iOS only shows :active press states when a touch listener exists.
+document.addEventListener("touchstart", () => {}, { passive: true });
+
+// Photos fade in when loaded; a photo that fails to load falls back to generated art.
+document.addEventListener("load", (e) => { if (e.target.tagName === "IMG") e.target.classList.add("ld"); }, true);
+document.addEventListener("error", (e) => {
+  const img = e.target;
+  if (img.tagName !== "IMG" || img.dataset.fallback) return;
+  img.dataset.fallback = "1";
+  img.src = art(img.dataset.title || "TravelBuddy");
+}, true);
+
+// Keyboard: hide the tab bar while typing and keep inputs just above the keyboard.
+const vv = window.visualViewport;
+function syncKeyboard() {
+  const kb = vv && vv.scale <= 1.01 ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  root.style.setProperty("--kb", kb > 60 ? `${Math.round(kb)}px` : "0px");
+}
+vv?.addEventListener("resize", syncKeyboard);
+vv?.addEventListener("scroll", syncKeyboard);
+let typingTimer;
+document.addEventListener("focusin", (e) => {
+  if (!e.target.matches("input, textarea")) return;
+  clearTimeout(typingTimer);
+  root.classList.add("typing");
+  syncKeyboard();
+});
+// Wait a beat so a tap on Send lands before the layout moves back.
+document.addEventListener("focusout", () => {
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => { if (!document.activeElement?.matches("input, textarea")) root.classList.remove("typing"); }, 120);
+});
 document.addEventListener("click", (e) => {
   const go = e.target.closest("[data-goto]");
-  if (go) showTab(go.dataset.goto);
+  if (go) showTab(go.dataset.goto, { top: true });
   if (e.target.closest("[data-open-search]") && !e.target.closest("#hereBtn")) openSearch();
 });
 
+// Full-screen layers (story, landmark, search) each get a history entry, so the phone's
+// back button or back swipe closes the layer instead of leaving the app.
+const layers = [];
+let ownBacks = 0;      // history.back() calls we made ourselves and are waiting on
+let pendingUrl = null; // URL change waiting for those to finish
+
 function openLayer(el) {
+  clearTimeout(el._leave);
+  el.classList.remove("leave", "dragging", "settle");
+  el.style.transform = el.style.opacity = "";
   el.hidden = false;
   el.classList.remove("enter");
   void el.offsetWidth;
   el.classList.add("enter");
   document.body.style.overflow = "hidden";
+  if (!layers.includes(el)) {
+    layers.push(el);
+    history.pushState({ layer: el.id }, "");
+  }
 }
-function closeLayer(el) {
-  el.hidden = true;
-  if (!document.querySelector(".layer:not([hidden])")) document.body.style.overflow = "";
+function hideLayer(el, instant) {
+  const done = () => {
+    el.hidden = true;
+    el.classList.remove("leave", "dragging", "settle");
+    el.style.transform = el.style.opacity = "";
+  };
+  clearTimeout(el._leave);
+  if (instant) done();
+  else {
+    el.classList.remove("enter", "dragging", "settle");
+    el.classList.add("leave");
+    el._leave = setTimeout(done, 200);
+  }
+  if (!layers.length) document.body.style.overflow = "";
+}
+function closeLayer(el, { fromBack = false, instant = false } = {}) {
+  const i = layers.indexOf(el);
+  if (i === -1) return;
+  layers.splice(i, 1);
+  hideLayer(el, instant);
+  if (!fromBack) { ownBacks++; history.back(); }
+}
+function closeAllLayers() {
+  const n = layers.length;
+  if (!n) return;
+  for (const el of layers.splice(0)) hideLayer(el, true);
+  ownBacks++;
+  history.go(-n);
+}
+addEventListener("popstate", () => {
+  if (ownBacks) {
+    ownBacks--;
+    if (!ownBacks && pendingUrl) { history.replaceState(null, "", pendingUrl); pendingUrl = null; }
+    return;
+  }
+  const top = layers.at(-1);
+  if (!top) return;
+  if (top.id === "story") closeStory({ fromBack: true });
+  else closeLayer(top, { fromBack: true });
+});
+function setUrl(url) {
+  if (ownBacks) pendingUrl = url;
+  else history.replaceState(null, "", url);
 }
 
 // ---------- location & search ----------
@@ -111,13 +210,15 @@ function locate() {
   if (!navigator.geolocation) return startError("Location isn't available here. Search for a place instead.");
   $("locateBtn").disabled = true;
   $("locateBtn").querySelector("span").textContent = "Finding you…";
+  $("hereBtn").classList.add("busy");
   navigator.geolocation.getCurrentPosition(
-    (pos) => go(pos.coords.latitude, pos.coords.longitude),
+    (pos) => { $("hereBtn").classList.remove("busy"); go(pos.coords.latitude, pos.coords.longitude, { gps: true }); },
     () => startError("I couldn't get your location. Allow location access, or search for a place."),
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
   );
 }
 function startError(msg) {
+  $("hereBtn").classList.remove("busy");
   closeLayer($("search"));
   if (!$("app").hidden) return toast(msg);
   $("locateBtn").disabled = false;
@@ -146,7 +247,9 @@ $("hereBtn").addEventListener("click", (e) => { e.stopPropagation(); locate(); }
 
 async function searchAndGo(q) {
   q = q.trim();
-  if (!q) return;
+  if (!q || $("search").classList.contains("busy")) return;
+  $("search").classList.add("busy");
+  $("searchInput").blur();
   try {
     const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
     const hit = await res.json();
@@ -157,18 +260,23 @@ async function searchAndGo(q) {
     go(hit.lat, hit.lon);
   } catch (err) {
     toast(err.message || "Couldn't find that place.");
+  } finally {
+    $("search").classList.remove("busy");
   }
 }
 
 // ---------- explore ----------
-function go(lat, lon) {
+function go(lat, lon, { gps = false } = {}) {
   S.here = { lat, lon };
+  S.gps = gps;
   S.place = null;
   S.stories.clear();
   $("welcome").hidden = true;
   $("app").hidden = false;
-  history.replaceState(null, "", `?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}`);
-  showTab("explore");
+  closeAllLayers();
+  setUrl(`?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}`);
+  showTab("explore", { top: true });
+  for (const k in tabScroll) delete tabScroll[k];
   renderExploreSkeleton();
   loadPlace();
   loadQuestions();
@@ -180,7 +288,7 @@ function renderExploreSkeleton() {
   $("storiesRow").innerHTML = Array.from({ length: 5 }, () => `<div class="story-bubble"><div class="sk" style="width:70px;height:70px;border-radius:50%"></div><div class="sk" style="width:48px;height:10px"></div></div>`).join("");
   $("heroWrap").innerHTML = `<div class="hero"><div class="photo sk"></div></div>`;
   $("guide").classList.remove("open");
-  $("guide").innerHTML = [80, 95, 60].map((w) => `<div class="sk sk-line" style="width:${w}%"></div>`).join("");
+  $("guide").innerHTML = guideGhosts();
   $("rail").innerHTML = Array.from({ length: 2 }, () => `<div class="listing"><div class="photo sk"></div><div class="sk" style="height:14px;width:70%;margin-top:12px"></div><div class="sk" style="height:12px;width:40%;margin-top:8px"></div></div>`).join("");
   $("lmCount").textContent = "";
 }
@@ -216,13 +324,13 @@ function renderExplore() {
   const seenSet = seen();
   const heroImg = S.place.areaImage || lms.find((l) => l.thumbnail)?.thumbnail || art(name);
   $("storiesRow").innerHTML = [
-    `<button class="story-bubble" data-story="tour"><div class="ring ${seenSet.has(tourKey()) ? "seen" : ""}"><img src="${esc(heroImg)}" alt=""></div><div class="lbl"><b>Your tour</b></div></button>`,
-    ...lms.map((l, i) => `<button class="story-bubble" data-story="lm" data-i="${i}"><div class="ring ${seenSet.has(lmKey(l)) ? "seen" : ""}"><img src="${esc(photo(l))}" alt=""></div><div class="lbl">${esc(l.title)}</div></button>`),
+    `<button class="story-bubble" data-story="tour"><div class="ring ${seenSet.has(tourKey()) ? "seen" : ""}" data-key="${esc(tourKey())}"><img src="${esc(heroImg)}" data-title="${esc(name)}" alt=""></div><div class="lbl"><b>Your tour</b></div></button>`,
+    ...lms.map((l, i) => `<button class="story-bubble" data-story="lm" data-i="${i}"><div class="ring ${seenSet.has(lmKey(l)) ? "seen" : ""}" data-key="${esc(lmKey(l))}"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt=""></div><div class="lbl">${esc(l.title)}</div></button>`),
   ].join("");
   $("storiesRow").classList.add("stagger");
 
   $("heroWrap").innerHTML = `<button class="hero" data-story="tour" aria-label="Play the tour of ${esc(name)}">
-    <div class="photo"><img src="${esc(heroImg)}" alt="">
+    <div class="photo"><img src="${esc(heroImg)}" data-title="${esc(name)}" alt="">
       <span class="badge"><span class="dot"></span>Live tour</span>
       <div class="over"><div class="k">${esc(region || "You are here")}</div><div class="t">${esc(name)}</div>
         <div class="play"><span class="pc">${icon("play", "sm")}</span>Watch the story · 2 min</div></div>
@@ -238,9 +346,9 @@ function renderExplore() {
 
 function listingCard(l, i, extra = "") {
   return `<button class="listing ${extra}" data-landmark="${i}">
-    <div class="photo"><img src="${esc(photo(l))}" alt="" loading="lazy">
+    <div class="photo"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt="" loading="lazy">
       ${i === 0 && !extra ? `<span class="tag">Top pick</span>` : ""}
-      <span class="heart ${isSaved(l.title) ? "on" : ""}" data-save="${i}" role="button" aria-label="Save">${icon("heart")}</span>
+      <span class="heart ${isSaved(l.title) ? "on" : ""}" data-save="${i}" data-save-title="${esc(l.title)}" role="button" aria-label="Save">${icon("heart")}</span>
     </div>
     <div class="meta">
       <div class="t"><span>${esc(l.title)}</span></div>
@@ -333,6 +441,7 @@ function prefetchTour() { if (S.here) { fetchStory(tourKey(), storyUrl("tour"));
 
 // ---------- your guide (tour narration shown right on Explore) ----------
 const GUIDE_PREVIEW = 3;
+const guideGhosts = () => Array.from({ length: GUIDE_PREVIEW }, () => `<div class="card ghost">${[40, 95, 80].map((w) => `<div class="sk sk-line" style="width:${w}%"></div>`).join("")}</div>`).join("");
 function onStoryUpdate(key) {
   if (S.here && key === tourKey()) renderGuide();
 }
@@ -344,8 +453,7 @@ function renderGuide() {
   if (!st.cards.length) {
     el.innerHTML = st.error
       ? `<div class="err">${esc(st.error)}<br><button data-guide-retry>Try again</button></div>`
-      : `<div class="note">Your guide is putting together the story of this area…</div>` +
-        [80, 95, 60].map((w) => `<div class="sk sk-line" style="width:${w}%"></div>`).join("");
+      : `<div class="note">Your guide is putting together the story of this area…</div>` + guideGhosts();
     return;
   }
   const open = el.classList.contains("open");
@@ -360,7 +468,12 @@ function renderGuide() {
   el.innerHTML = cards + more + note;
 }
 $("guide").addEventListener("click", (e) => {
-  if (e.target.closest("[data-guide-more]")) { $("guide").classList.toggle("open"); renderGuide(); }
+  if (e.target.closest("[data-guide-more]")) {
+    const open = $("guide").classList.toggle("open");
+    renderGuide();
+    // After collapsing, bring the guide back into view rather than leaving you far down the page.
+    if (!open) window.scrollTo({ top: Math.max(0, $("guide").closest(".section").offsetTop - 64), behavior: "smooth" });
+  }
   if (e.target.closest("[data-guide-retry]")) { S.stories.delete(tourKey()); prefetchTour(); }
 });
 $("guidePlay").addEventListener("click", () => { if (S.place) openStory({ kind: "tour" }); });
@@ -374,7 +487,7 @@ function openStory({ kind, landmark }) {
   V.baseSub = kind === "tour" ? "Your guide" : landmark.distance != null ? `${dist(landmark.distance)} away · ${walk(landmark.distance)}` : "Your guide";
   V.metaShown = false;
   $("storySub").textContent = V.baseSub;
-  $("storyAvatar").innerHTML = `<img src="${esc(kind === "tour" ? (S.place.areaImage || S.place.landmarks.find((l) => l.thumbnail)?.thumbnail || art(name)) : photo(landmark))}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+  $("storyAvatar").innerHTML = `<img src="${esc(kind === "tour" ? (S.place.areaImage || S.place.landmarks.find((l) => l.thumbnail)?.thumbnail || art(name)) : photo(landmark))}" data-title="${esc(kind === "tour" ? name : landmark.title)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
   $("storyQ").value = "";
   $("storyQ").placeholder = kind === "tour" ? `Ask about ${name}…` : `Ask about ${landmark.title}…`;
   openLayer($("story"));
@@ -383,13 +496,16 @@ function openStory({ kind, landmark }) {
   V.raf = requestAnimationFrame(tick);
 }
 
-function closeStory() {
+function closeStory(opts) {
   cancelAnimationFrame(V.raf);
   window.speechSynthesis?.cancel();
-  closeLayer($("story"));
+  if (press) clearTimeout(press.timer);
+  press = null;
+  closeLayer($("story"), opts);
   if (V.st?.done && V.st.cards.length) {
     local("tb-seen", [...seen(), V.key].slice(-200));
-    if (S.place) renderExplore();
+    // Grey the ring in place; re-rendering Explore would reset the rows' scroll positions.
+    document.querySelectorAll(".ring[data-key]").forEach((r) => { if (r.dataset.key === V.key) r.classList.add("seen"); });
   }
 }
 
@@ -509,23 +625,47 @@ let press = null;
 $("story").addEventListener("pointerdown", (e) => {
   if (e.target.closest("button, input, form")) return;
   press = { x: e.clientX, y: e.clientY, t: performance.now(), zone: e.target.closest("[data-tap]")?.dataset.tap };
+  try { $("story").setPointerCapture(e.pointerId); } catch {}
   V.paused = true;
   V.held = false;
   press.timer = setTimeout(() => { V.held = true; $("story").classList.add("paused"); window.speechSynthesis?.pause?.(); }, 220);
 });
-$("story").addEventListener("pointerup", (e) => {
+// The story follows your finger as you pull it down, then closes or springs back.
+$("story").addEventListener("pointermove", (e) => {
+  if (!press) return;
+  const dy = e.clientY - press.y;
+  if (!press.drag && dy > 12 && dy > Math.abs(e.clientX - press.x)) {
+    press.drag = true;
+    clearTimeout(press.timer);
+    $("story").classList.remove("enter", "settle", "paused");
+    $("story").classList.add("dragging");
+  }
+  if (press.drag) {
+    const d = Math.max(0, dy);
+    $("story").style.transform = `translateY(${d}px) scale(${1 - Math.min(d / 2400, 0.08)})`;
+    $("story").style.opacity = String(1 - Math.min(d / 600, 0.4));
+  }
+});
+function endPress(e, cancelled) {
   if (!press) return;
   clearTimeout(press.timer);
+  const el = $("story");
   const dy = e.clientY - press.y;
   const quick = performance.now() - press.t < 220;
+  const { drag: wasDrag, zone } = press;
   V.paused = false;
-  $("story").classList.remove("paused");
+  el.classList.remove("paused");
   if (V.held) window.speechSynthesis?.resume?.();
-  if (dy > 90) closeStory();
-  else if (quick && Math.abs(dy) < 20) press.zone === "prev" ? prev() : next();
   press = null;
-});
-$("story").addEventListener("pointercancel", () => { if (press) clearTimeout(press.timer); press = null; V.paused = false; });
+  if (!cancelled && dy > 90) return closeStory();
+  if (wasDrag) {
+    el.classList.remove("dragging");
+    el.classList.add("settle");
+    el.style.transform = el.style.opacity = "";
+  } else if (!cancelled && quick && Math.abs(dy) < 20) zone === "prev" ? prev() : next();
+}
+$("story").addEventListener("pointerup", (e) => endPress(e, false));
+$("story").addEventListener("pointercancel", (e) => endPress(e, true));
 $("storyQ").addEventListener("focus", () => { V.paused = true; });
 $("storyQ").addEventListener("blur", () => { V.paused = false; });
 $("storyReply").addEventListener("submit", (e) => {
@@ -533,8 +673,9 @@ $("storyReply").addEventListener("submit", (e) => {
   const q = $("storyQ").value.trim();
   if (!q) return;
   const topic = V.kind === "lm" ? V.landmark.title : null;
-  closeStory();
-  showTab("ask");
+  closeStory({ instant: true });
+  closeAllLayers(); // the landmark page may be open underneath
+  showTab("ask", { top: true });
   ask(q, topic);
 });
 
@@ -545,7 +686,7 @@ function openDetail(l) {
     ? `https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${l.lat},${l.lon}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.title)}`;
   $("detail").innerHTML = `
-    <div class="hero-photo"><img src="${esc(photo(l))}" alt="">
+    <div class="hero-photo"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt="">
       <div class="hero-actions">
         <button class="round" data-close-detail aria-label="Back">${icon("back", "sm")}</button><span class="sp"></span>
         <button class="round" data-share aria-label="Share">${icon("share", "sm")}</button>
@@ -560,7 +701,7 @@ function openDetail(l) {
         <div><b>${qs.length}</b><span>questions</span></div>
       </div>
       <button class="row-link" data-lm-story>
-        <div class="ring ${seen().has(lmKey(l)) ? "seen" : ""}"><img src="${esc(photo(l))}" alt=""></div>
+        <div class="ring ${seen().has(lmKey(l)) ? "seen" : ""}" data-key="${esc(lmKey(l))}"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt=""></div>
         <div class="txt"><div class="t">Watch its story</div><div class="s">3 quick cards from your guide</div></div>${icon("chev", "sm")}
       </button>
       <hr>
@@ -595,13 +736,13 @@ $("detail").addEventListener("click", async (e) => {
   if (sv) {
     toggleSave(l, sv);
     sv.style.color = isSaved(l.title) ? "var(--accent)" : "";
-    if (S.place) renderExplore();
+    if (S.tab === "saved") renderSaved();
     return;
   }
   if (e.target.closest("[data-lm-story]")) return openStory({ kind: "lm", landmark: l });
   if (e.target.closest("[data-ask-about]")) {
-    closeLayer($("detail"));
-    showTab("ask");
+    closeLayer($("detail"), { instant: true });
+    showTab("ask", { top: true });
     $("question").placeholder = `Ask about ${l.title}…`;
     $("question").dataset.topic = l.title;
     return $("question").focus();
@@ -760,5 +901,25 @@ document.addEventListener("keydown", (e) => {
 
 const params = new URLSearchParams(location.search);
 if (params.has("lat") && params.has("lon")) go(Number(params.get("lat")), Number(params.get("lon")));
+else {
+  // Already allowed location before? Skip the tap and start the tour straight away.
+  navigator.permissions?.query({ name: "geolocation" }).then((p) => { if (p.state === "granted" && !S.here) locate(); }).catch(() => {});
+}
+root.classList.remove("booted");
+
+// Coming back to the app after a while: if you've moved, quietly switch to where you are now.
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (!S.gps || !S.here || layers.length || Date.now() - hiddenAt < 5 * 60 * 1000) return;
+  navigator.geolocation?.getCurrentPosition((pos) => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    const m = Math.hypot(lat - S.here.lat, (lon - S.here.lon) * Math.cos((lat * Math.PI) / 180)) * 111320;
+    if (m > 300 && S.gps && !layers.length && !root.classList.contains("typing")) {
+      go(lat, lon, { gps: true });
+      toast("You've moved. Here's the story of where you are now.");
+    }
+  }, () => {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
