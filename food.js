@@ -143,7 +143,7 @@ export async function googlePhotoUrl(ref) {
   const hit = photoCache.get(ref);
   if (hit && Date.now() - hit.at < 12 * 3600_000) return hit.url;
   if (!spendPlacesCall("photo")) return hit?.url || null;
-  const res = await fetch(`https://places.googleapis.com/v1/${ref}/media?maxWidthPx=1600&skipHttpRedirect=true&key=${encodeURIComponent(GOOGLE_KEY)}`);
+  const res = await fetch(`https://places.googleapis.com/v1/${ref}/media?maxWidthPx=1600&skipHttpRedirect=true&key=${encodeURIComponent(GOOGLE_KEY)}`, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`${res.status} from Google Places photos`);
   const { photoUri } = await res.json();
   if (photoCache.size > 5000) photoCache.clear();

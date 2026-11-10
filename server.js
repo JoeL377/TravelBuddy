@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { openStore } from "./store.js";
 import { describePlace, searchPlace } from "./places.js";
 import { googlePhotoUrl } from "./food.js";
-import { initFlorence, FLORENCE_MODE } from "./florence.js";
+import { initFlorence, florenceStatus, FLORENCE_MODE } from "./florence.js";
 import { initBudget, placesUsage } from "./budget.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -47,7 +47,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
 
 // For the host's health check.
-app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL, foodSource: process.env.GOOGLE_PLACES_API_KEY ? "google" : "osm", webSearch: WEB_SEARCH, placesCalls: placesUsage() }));
+app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL, foodSource: process.env.GOOGLE_PLACES_API_KEY ? "google" : "osm", webSearch: WEB_SEARCH, placesCalls: placesUsage(), ...(FLORENCE_MODE ? { florence: florenceStatus() } : {}) }));
 app.use(express.json({ limit: "32kb" }));
 
 // --- Abuse limits ---------------------------------------------------------
@@ -298,7 +298,7 @@ const PHOTO_MODEL = process.env.PHOTO_MODEL || "claude-haiku-5-5";
 
 async function classifyPhoto(url, title) {
   try {
-    const img = await fetch(url);
+    const img = await fetch(url, { signal: AbortSignal.timeout(20_000) });
     if (!img.ok) throw new Error(`${img.status} fetching photo`);
     const type = (img.headers.get("content-type") || "image/jpeg").split(";")[0];
     const data = Buffer.from(await img.arrayBuffer()).toString("base64");
@@ -323,7 +323,7 @@ Then score it from 1 to 10 as a cover photo: 10 is a sharp, well-lit, close, bea
 Reply in exactly this form: KIND SCORE (for example: DISH 7).` },
         ],
       }],
-    });
+    }, { timeout: 60_000 });
     const text = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("").toUpperCase();
     const m = text.match(/\b(DISH|FOOD|DRINK|PLACE|PEOPLE|MENU|OTHER)\b\D*(10|[1-9])?/);
     if (!m) return { kind: "OTHER", score: 0 };
