@@ -31,7 +31,7 @@ function hasClaudeCredentials() {
 const client = MOCK ? null : new Anthropic();
 const store = openStore(process.env.DB_PATH || path.join(here, "travelbuddy.db"));
 initBudget(store);
-initFlorence(store);
+initFlorence(store, { classify: MOCK ? null : classifyPhoto });
 
 // Bump when the story prompts change, so every area gets fresh cards.
 const STORY_VERSION = "food1";
@@ -289,6 +289,46 @@ function friendlyError(err) {
   if (status === 400 && /credit|billing|balance/i.test(err?.message || "")) return "The guide can't speak: the Anthropic account is out of credits.";
   if (status === 429) return "The guide is busy right now (rate limited). Try again in a minute.";
   return "The guide lost its voice for a moment. Please try again.";
+}
+
+// --- Food photo check ----------------------------------------------------
+// Decides whether a restaurant photo shows a dish (what a food guide should
+// lead with) or the room, the front door, people or a menu. Small and cheap.
+const PHOTO_MODEL = process.env.PHOTO_MODEL || "claude-haiku-5-5";
+const PHOTO_KINDS = ["DISH", "FOOD", "DRINK", "PLACE", "PEOPLE", "MENU", "OTHER"];
+
+async function classifyPhoto(url, title) {
+  try {
+    const img = await fetch(url);
+    if (!img.ok) throw new Error(`${img.status} fetching photo`);
+    const type = (img.headers.get("content-type") || "image/jpeg").split(";")[0];
+    const data = Buffer.from(await img.arrayBuffer()).toString("base64");
+    const msg = await client.messages.create({
+      model: PHOTO_MODEL,
+      max_tokens: 1000,
+      output_config: { effort: "low" },
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: type, data } },
+          { type: "text", text: `This photo is from the Google Maps listing of ${title}, a restaurant in Florence. We want to show a photo of the food.
+Reply with one word:
+DISH if a plate or bowl of food is the main subject, close and appetizing;
+FOOD if food is visible but small, far away or not the main subject;
+DRINK if a drink or wine is the main subject;
+PLACE if it mostly shows the dining room, building, terrace, kitchen or view;
+PEOPLE if people are the main subject;
+MENU if it shows a menu, sign or text;
+OTHER otherwise.` },
+        ],
+      }],
+    });
+    const word = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("").trim().toUpperCase().match(/[A-Z]+/)?.[0];
+    return PHOTO_KINDS.includes(word) ? word : "OTHER";
+  } catch (err) {
+    console.error("photo check failed", title, err.message);
+    return null; // try again later rather than writing the photo off
+  }
 }
 
 // --- Moderation -----------------------------------------------------------
