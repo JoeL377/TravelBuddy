@@ -30,8 +30,11 @@ async function lookup(lat, lon) {
     reverseGeocode(lat, lon).catch(() => null),
     nearbyLandmarks(lat, lon).catch(() => []),
   ]);
+  const areaImage = geo?.area ? await cityImage(geo.area, geo.state).catch(() => null) : null;
   return {
     label: geo?.label || landmarks[0]?.title || "Somewhere interesting",
+    // Lead photo of the town's own Wikipedia article, for the tour cover.
+    areaImage,
     area: geo?.area || null,
     // Everyone in the same neighborhood shares one generated tour.
     areaKey: geo?.areaKey || gridKey(lat, lon),
@@ -58,6 +61,7 @@ async function reverseGeocode(lat, lon) {
   return {
     label: [...new Set(parts)].join(", ") || d.display_name,
     area: city || null,
+    state: a.state || null,
     areaKey,
     areaName: local && city ? `${local}, ${city}` : null,
   };
@@ -170,10 +174,44 @@ async function nearbyLandmarks(lat, lon) {
     return {
       ...c,
       extract: p.extract || c.description || "",
-      thumbnail: p.thumbnail?.source || null,
+      thumbnail: photoUrl(p.thumbnail),
       url: p.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(c.title.replace(/ /g, "_"))}`,
     };
   });
+}
+
+// Wikipedia's "page image" is sometimes a logo, seal, flag or locator map rather
+// than a photo of the place. Those look broken as a full-screen backdrop.
+const NOT_A_PHOTO = /(logo|seal|flag|coat[_ ]of[_ ]arms|emblem|icon|wordmark|signature|locator|location[_ ]map|[_-]map[_.-]|\.svg)/i;
+export function photoUrl(thumb) {
+  if (!thumb?.source) return null;
+  const file = decodeURIComponent(thumb.source.split("?")[0].split("/").pop() || "");
+  return NOT_A_PHOTO.test(file) ? null : thumb.source;
+}
+
+async function cityImage(city, state) {
+  const titles = [state ? `${city}, ${state}` : null, city].filter(Boolean);
+  const params = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    origin: "*",
+    titles: titles.join("|"),
+    redirects: "1",
+    prop: "pageimages|pageprops",
+    ppprop: "disambiguation",
+    piprop: "thumbnail",
+    pithumbsize: "1200",
+  });
+  const d = await getJson(`https://en.wikipedia.org/w/api.php?${params}`);
+  const pages = (d.query?.pages || []).filter((p) => !p.missing && !p.pageprops?.disambiguation);
+  // Prefer "City, State" (the US convention) over a bare name that may be elsewhere.
+  pages.sort((a, b) => (state && b.title.includes(state) ? 1 : 0) - (state && a.title.includes(state) ? 1 : 0));
+  for (const p of pages) {
+    const url = photoUrl(p.thumbnail);
+    if (url) return url;
+  }
+  return null;
 }
 
 function dist(lat1, lon1, lat2, lon2) {

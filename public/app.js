@@ -214,7 +214,7 @@ function renderExplore() {
   $("askSub").textContent = `Questions from travelers near ${name}`;
 
   const seenSet = seen();
-  const heroImg = lms.find((l) => l.thumbnail)?.thumbnail || art(name);
+  const heroImg = S.place.areaImage || lms.find((l) => l.thumbnail)?.thumbnail || art(name);
   $("storiesRow").innerHTML = [
     `<button class="story-bubble" data-story="tour"><div class="ring ${seenSet.has(tourKey()) ? "seen" : ""}"><img src="${esc(heroImg)}" alt=""></div><div class="lbl"><b>Your tour</b></div></button>`,
     ...lms.map((l, i) => `<button class="story-bubble" data-story="lm" data-i="${i}"><div class="ring ${seenSet.has(lmKey(l)) ? "seen" : ""}"><img src="${esc(photo(l))}" alt=""></div><div class="lbl">${esc(l.title)}</div></button>`),
@@ -374,7 +374,7 @@ function openStory({ kind, landmark }) {
   V.baseSub = kind === "tour" ? "Your guide" : landmark.distance != null ? `${dist(landmark.distance)} away · ${walk(landmark.distance)}` : "Your guide";
   V.metaShown = false;
   $("storySub").textContent = V.baseSub;
-  $("storyAvatar").innerHTML = `<img src="${esc(kind === "tour" ? (S.place.landmarks.find((l) => l.thumbnail)?.thumbnail || art(name)) : photo(landmark))}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+  $("storyAvatar").innerHTML = `<img src="${esc(kind === "tour" ? (S.place.areaImage || S.place.landmarks.find((l) => l.thumbnail)?.thumbnail || art(name)) : photo(landmark))}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
   $("storyQ").value = "";
   $("storyQ").placeholder = kind === "tour" ? `Ask about ${name}…` : `Ask about ${landmark.title}…`;
   openLayer($("story"));
@@ -399,10 +399,15 @@ const cardMs = (c) => Math.max(5000, ((c.title + " " + c.body).split(/\s+/).leng
 function bgFor(card, i) {
   const lms = S.place?.landmarks || [];
   if (V.kind === "lm") return photo(V.landmark);
-  const named = lms.find((l) => card && (card.title + card.body).toLowerCase().includes(l.title.toLowerCase()));
+  // Show a landmark's photo only on the card that talks about it. Match the short
+  // name too: the guide says "Central Park", the article is "Central Park (San Mateo)".
+  const text = card ? (card.title + " " + card.body).toLowerCase() : "";
+  const short = (t) => t.replace(/\s*\(.*\)$/, "").split(",")[0].toLowerCase();
+  const named = lms.find((l) => text.includes(l.title.toLowerCase()) || (short(l.title).length > 4 && text.includes(short(l.title))));
   if (named) return photo(named);
-  const withImg = lms.filter((l) => l.thumbnail);
-  if (withImg.length) return withImg[i % withImg.length].thumbnail;
+  // Cards about the area itself get the town's photo first, then illustrations,
+  // never an unrelated landmark's picture.
+  if (i === 0 && S.place?.areaImage) return S.place.areaImage;
   return art(`${placeParts().name}-${i}`);
 }
 
