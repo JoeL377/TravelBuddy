@@ -94,11 +94,18 @@ export function initFlorence(s, { classify = null } = {}) {
 
 // One place at a time: OpenStreetMap's free geocoder allows ~1 request a second.
 let resolving = null;
+// What the last lookups and photo picking did, for /healthz (no Railway logs needed).
+const status = { lookupErrors: new Map(), pickStopped: null, pickAt: null };
+export function florenceStatus() {
+  const withGoogle = CURATED.filter((c) => resolved.get(c.id)?.google).length;
+  const picked = CURATED.filter((c) => { const ch = readJson(PICK_KEY(c.id)); return ch && ch.index != null; }).length;
+  return { places: CURATED.length, withGoogle, picked, resolving: !!resolving, picking, pickStopped: status.pickStopped, pickAt: status.pickAt, lookupErrors: Object.fromEntries(status.lookupErrors) };
+}
 function resolveAll() {
   resolving ??= (async () => {
     for (const c of CURATED) {
       const r = resolved.get(c.id);
-      if (r && (!GOOGLE_KEY || Date.now() - r.at < LOOKUP_TTL_MS)) continue;
+      if (r && (!GOOGLE_KEY || (r.google && Date.now() - r.at < LOOKUP_TTL_MS))) continue; // places Google missed are retried at each check
       try {
         // Over today's Google allowance: keep what we have, or fall back to the free geocoder.
         const useGoogle = GOOGLE_KEY && spendPlacesCall("search");
@@ -109,10 +116,14 @@ function resolveAll() {
           // Coordinates and the Google place ID may be kept; other Google data is refreshed.
           store?.setValue(`geo:${c.id}`, JSON.stringify({ lat: hit.lat, lon: hit.lon, placeId: hit.google?.placeId || null }));
         }
+        status.lookupErrors.delete(c.title);
       } catch (err) {
         console.error("florence lookup failed", c.title, err.message);
+        status.lookupErrors.set(c.title, err.message.slice(0, 160));
       }
-      if (!GOOGLE_KEY) await new Promise((r) => setTimeout(r, 1100));
+      // Pace the lookups: the free geocoder allows ~1 a second, and a
+      // per-minute quota on the Google key would otherwise cut off the end of the list.
+      await new Promise((r) => setTimeout(r, GOOGLE_KEY ? 3000 : 1100));
     }
   })().finally(() => { resolving = null; pickFoodPhotos().catch((err) => console.error("food photo picking failed", err.message)); });
   return resolving;
@@ -122,7 +133,7 @@ setInterval(() => { if (FLORENCE_MODE && GOOGLE_KEY) resolveAll().catch(() => {}
 
 async function geocode(c) {
   const q = `${c.address}, 50100 Firenze, Italia`;
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=it&q=${encodeURIComponent(q)}`, { headers: { "User-Agent": UA } });
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=it&q=${encodeURIComponent(q)}`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`${res.status} from Nominatim`);
   const [hit] = await res.json();
   return hit ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null;
@@ -137,6 +148,7 @@ async function googleLookup(c) {
       "X-Goog-Api-Key": GOOGLE_KEY,
       "X-Goog-FieldMask": "places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.priceLevel,places.photos,places.googleMapsUri,places.websiteUri,places.currentOpeningHours.openNow",
     },
+    signal: AbortSignal.timeout(15_000),
     body: JSON.stringify({ textQuery: `${c.title}, ${c.address}, Firenze`, maxResultCount: 1, locationBias: { circle: { center: { latitude: DUOMO.lat, longitude: DUOMO.lon }, radius: 15000 } } }),
   });
   if (!res.ok) throw new Error(`${res.status} from Google Places: ${(await res.text()).slice(0, 200)}`);
@@ -260,6 +272,9 @@ let picking = false;
 export async function pickFoodPhotos() {
   if (!classifyPhoto || !GOOGLE_KEY || picking) return;
   picking = true;
+  status.pickAt = new Date().toISOString();
+  status.pickStopped = null;
+  const stop = (why) => { status.pickStopped = why; console.log(`food photo picking paused: ${why}`); };
   try {
     for (const c of CURATED) {
       const photos = resolved.get(c.id)?.google?.photos;
@@ -272,11 +287,12 @@ export async function pickFoodPhotos() {
       for (let i = 0; i < photos.length; i++) {
         if (seen[i]) continue;
         const { used, limit } = placesUsage();
-        if (used >= limit - PHOTO_RESERVE) return; // carry on later
-        const url = await googlePhotoUrl(photos[i].name);
-        if (!url) return;
+        if (used >= limit - PHOTO_RESERVE) return stop("daily reserve reached"); // carry on later
+        let url;
+        try { url = await googlePhotoUrl(photos[i].name); } catch (err) { return stop(`photo for ${c.title}: ${err.message.slice(0, 160)}`); }
+        if (!url) return stop(`no photo URL for ${c.title}`);
         const verdict = await classifyPhoto(url, c.title);
-        if (!verdict) return;
+        if (!verdict) return stop(`vision check failed for ${c.title}`);
         seen[i] = verdict;
         console.log(`food photo ${c.title} #${i}: ${verdict.kind} ${verdict.score}`);
         store.setValue(PICK_KEY(c.id), JSON.stringify({ seen, count: photos.length, at: Date.now() }));
@@ -286,6 +302,9 @@ export async function pickFoodPhotos() {
       const index = best ? best.i : 0;
       store.setValue(PICK_KEY(c.id), JSON.stringify({ index, credit: photos[index].credit, kind: best?.kind || null, score: best?.score ?? null, seen, count: photos.length, at: Date.now() }));
     }
+    status.pickStopped = "all done";
+  } catch (err) {
+    stop(err.message.slice(0, 160));
   } finally {
     picking = false;
   }
