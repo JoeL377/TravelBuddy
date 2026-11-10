@@ -6,6 +6,7 @@
 
 // OpenStreetMap asks apps to identify themselves with a way to reach the operator.
 import { nearbyFood, mockSpots, FOOD_SOURCE } from "./food.js";
+import { FLORENCE_MODE, DUOMO, inFlorence, florenceSpots, needsCommonsPhoto, markPhotoTried, setCommonsPhoto, resolvedCoords } from "./florence.js";
 
 const UA = `TravelBuddy/0.2 (food guide${process.env.CONTACT_EMAIL ? `; ${process.env.CONTACT_EMAIL}` : ""})`;
 const cache = new Map();
@@ -14,6 +15,7 @@ const TTL_MS = 6 * 60 * 60 * 1000;
 const MOCK_PLACES = process.env.MOCK_PLACES === "1";
 
 export async function describePlace(lat, lon) {
+  if (FLORENCE_MODE) return describeFlorence(lat, lon);
   const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return { ...hit.value, lat, lon };
@@ -156,6 +158,56 @@ function kindFromDescription(d = "") {
   if (!m) return "Food spot";
   const w = m[1].toLowerCase();
   return w[0].toUpperCase() + w.slice(1);
+}
+
+// Florence mode: the curated list, measured from you if you're in Florence,
+// otherwise from the Duomo (and `centered` tells the app it moved you there).
+async function describeFlorence(lat, lon) {
+  const here = inFlorence(lat, lon);
+  const at = here ? { lat, lon } : DUOMO;
+  const key = `fi:${at.lat.toFixed(3)},${at.lon.toFixed(3)}`;
+  let base = cache.get(key);
+  if (!base || Date.now() - base.at >= TTL_MS) {
+    const geo = MOCK_PLACES ? null : await reverseGeocode(at.lat, at.lon).catch(() => null);
+    const areaImage = MOCK_PLACES ? null : await cityImage("Florence", null).catch(() => null);
+    base = {
+      at: Date.now(),
+      value: {
+        label: geo?.label || "Florence, Tuscany, Italy",
+        area: "Florence",
+        areaImage,
+        areaPhotos: [],
+        // One shared food story per Florence neighborhood (or the whole city).
+        areaKey: here && geo?.areaKey ? geo.areaKey : "city:florence",
+        areaName: here && geo?.areaName ? geo.areaName : "Florence",
+      },
+    };
+    cache.set(key, base);
+  }
+  if (!MOCK_PLACES) fillCommonsPhotos();
+  return { ...base.value, lat: at.lat, lon: at.lon, centered: !here, source: "florence", spots: florenceSpots(at.lat, at.lon, { mock: MOCK_PLACES, nearest: here }) };
+}
+
+// Without a Google key, look for a free Wikimedia Commons photo taken at each
+// curated place, a few at a time in the background.
+let fillingPhotos = false;
+async function fillCommonsPhotos() {
+  if (fillingPhotos) return;
+  fillingPhotos = true;
+  try {
+    for (const c of needsCommonsPhoto().slice(0, 6)) {
+      const r = resolvedCoords(c.id);
+      markPhotoTried(c.id);
+      try {
+        const [hit] = await commonsPhotos(r.lat, r.lon, { radius: 80, limit: 20, prefer: c.title, strict: true });
+        if (hit) setCommonsPhoto(c.id, hit);
+      } catch (err) {
+        console.error("commons photo failed", c.title, err.message);
+      }
+    }
+  } finally {
+    fillingPhotos = false;
+  }
 }
 
 // ~1.1 km grid square, used when OpenStreetMap has no neighborhood name.

@@ -231,7 +231,7 @@ function startError(msg) {
   $("startError").hidden = false;
 }
 
-const IDEAS = ["Chinatown, San Francisco", "Tsukiji, Tokyo", "Arthur Avenue, Bronx", "Mercado de San Miguel, Madrid", "Bologna, Italy"];
+const IDEAS = ["Duomo, Florence", "Santa Croce, Florence", "San Lorenzo, Florence", "Santo Spirito, Florence", "San Frediano, Florence"];
 function openSearch() {
   const recents = local("tb-recents") || [];
   const opt = (q, ic) => `<button class="opt" data-q="${esc(q)}"><span class="ic">${icon(ic)}</span><span><div class="t">${esc(q.split(",")[0])}</div><div class="s">${esc(q.split(",").slice(1).join(",").trim())}</div></span></button>`;
@@ -303,6 +303,14 @@ async function loadPlace() {
     const place = await res.json();
     if (!res.ok) throw new Error(place.error);
     S.place = place;
+    // Florence mode: when you're not in Florence, the guide starts you at the Duomo.
+    if (place.centered && (place.lat !== S.here.lat || place.lon !== S.here.lon)) {
+      S.here = { lat: place.lat, lon: place.lon };
+      S.gps = false;
+      loadQuestions();
+      if (!S.toldCentered) { S.toldCentered = true; toast("You're not in Florence yet, so here's the city from the Duomo."); }
+    }
+    $("rail").closest(".section").querySelector("h2").textContent = place.source === "florence" ? "Florence's best tables" : "Where to eat nearby";
     renderExplore();
     renderChips();
     prefetchTour();
@@ -341,23 +349,25 @@ function renderExplore() {
     </div></button>`;
 
   const far = Math.max(0, ...lms.map((l) => l.distance || 0));
-  $("lmCount").textContent = lms.length ? `${lms.length} within ${far < 1000 ? "1 km" : `${Math.ceil(far / 1000)} km`}` : "";
+  $("lmCount").textContent = !lms.length ? "" : S.place.source === "florence" ? `${lms.length} hand-picked${S.place.centered ? "" : ", nearest first"}` : `${lms.length} within ${far < 1000 ? "1 km" : `${Math.ceil(far / 1000)} km`}`;
   $("rail").innerHTML = lms.length
     ? lms.map((l, i) => listingCard(l, i)).join("")
     : `<div class="empty" style="padding:24px 0;width:100%"><div class="big">Slim pickings</div>No places to eat on the map right around here. Ask the guide where to go.</div>`;
   $("rail").classList.add("stagger");
-  $("sourceNote").textContent = S.place.source === "google" ? "Ratings and photos from Google Maps" : S.place.source === "osm" ? "Places from OpenStreetMap" : "";
+  $("sourceNote").textContent = S.place.source === "florence"
+    ? `Picked from the Michelin Guide, Gambero Rosso and Lonely Planet${lms.some((l) => l.rating != null) ? ". Ratings and photos from Google Maps" : ""}`
+    : S.place.source === "google" ? "Ratings and photos from Google Maps" : S.place.source === "osm" ? "Places from OpenStreetMap" : "";
 }
 
 function listingCard(l, i, extra = "") {
   return `<button class="listing ${extra}" data-landmark="${i}">
     <div class="photo"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt="" loading="lazy">
-      ${l.famous && !extra ? `<span class="tag">Famous</span>` : i === 0 && !extra ? `<span class="tag">Top pick</span>` : ""}
+      ${l.badge ? `<span class="tag">${esc(l.badge)}</span>` : l.famous && !extra ? `<span class="tag">Famous</span>` : i === 0 && !extra ? `<span class="tag">Top pick</span>` : ""}
       <span class="heart ${isSaved(l.title) ? "on" : ""}" data-save="${i}" data-save-title="${esc(l.title)}" role="button" aria-label="Save">${icon("heart")}</span>
     </div>
     <div class="meta">
       <div class="t"><span>${esc(l.title)}</span>${l.rating != null ? `<span class="rate">★ ${l.rating.toFixed(1)}</span>` : ""}</div>
-      <div class="s">${esc(spotKind(l))}</div>
+      <div class="s">${esc([spotKind(l), l.hood].filter(Boolean).join(" · "))}</div>
       <div class="d">${[dist(l.distance) && `<b>${dist(l.distance)}</b>`, walk(l.distance), l.price, openLabel(l)].filter(Boolean).join(" · ")}</div>
     </div></button>`;
 }
@@ -701,6 +711,7 @@ function openDetail(l) {
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.title)}`;
   $("detail").innerHTML = `
     <div class="hero-photo"><img src="${esc(photo(l))}" data-title="${esc(l.title)}" alt="">
+      ${l.photoCredit ? `<span class="credit">Photo: ${esc(l.photoCredit)}${l.rating != null ? " on Google Maps" : ""}</span>` : ""}
       <div class="hero-actions">
         <button class="round" data-close-detail aria-label="Back">${icon("back", "sm")}</button><span class="sp"></span>
         <button class="round" data-share aria-label="Share">${icon("share", "sm")}</button>
@@ -712,6 +723,7 @@ function openDetail(l) {
       <div class="stats">
         ${l.rating != null
           ? `<div><b>★ ${l.rating.toFixed(1)}</b><span>${l.ratingCount ? `${count(l.ratingCount)} reviews` : "rating"}</span></div>`
+          : l.badge ? `<div><b>${esc(l.badge.replace(/ (Michelin )?stars?$/, "★").replace(/^Michelin Guide$/, "Michelin"))}</b><span>${/star/.test(l.badge) ? "Michelin" : /Michelin/.test(l.badge) ? "listed" : ""}</span></div>`
           : `<div><b>${l.famous ? "Famous" : "Local"}</b><span>${l.famous ? "on Wikipedia" : "spot"}</span></div>`}
         <div><b>${l.price || dist(l.distance) || "—"}</b><span>${l.price ? "price" : "distance"}</span></div>
         <div><b>${l.openNow == null ? qs.length : l.openNow ? "Open" : "Closed"}</b><span>${l.openNow == null ? "questions" : "right now"}</span></div>
@@ -721,6 +733,8 @@ function openDetail(l) {
         <div class="txt"><div class="t">Watch its story</div><div class="s">Why people come, what to order, a tip</div></div>${icon("chev", "sm")}
       </button>
       ${l.extract ? `<hr><h3>About</h3><div class="about">${esc(l.extract)}</div>` : ""}
+      ${l.order ? `<hr><h3>What to order</h3><div class="about">${esc(l.order)}</div>` : ""}
+      ${l.sources?.length ? `<div class="muted sources">Recommended by ${l.sources.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a>`).join(", ")}</div>` : ""}
       ${l.hours ? `<div class="muted" style="margin-top:8px;font-size:14px">${icon("clock", "sm")} ${esc(l.hours)}</div>` : ""}
       <hr>
       <h3>Getting there</h3>
@@ -773,7 +787,9 @@ $("detail").addEventListener("click", async (e) => {
 // ---------- ask & Q&A feed ----------
 function renderChips() {
   const top = S.place?.spots?.[0]?.title;
-  const chips = ["What is this area known for eating?", "Where do locals eat?", top && `What should I order at ${top}?`, "Best cheap eats nearby?", "Anything good open late?"].filter(Boolean);
+  const chips = S.place?.source === "florence"
+    ? ["What should I eat in Florence?", "Where's the best bistecca?", top && `What should I order at ${top}?`, "Where do Florentines get lampredotto?", "Best cheap lunch nearby?"].filter(Boolean)
+    : ["What is this area known for eating?", "Where do locals eat?", top && `What should I order at ${top}?`, "Best cheap eats nearby?", "Anything good open late?"].filter(Boolean);
   $("chips").innerHTML = chips.map((c) => `<button class="chip" data-chip>${esc(c)}</button>`).join("");
 }
 $("chips").addEventListener("click", (e) => {

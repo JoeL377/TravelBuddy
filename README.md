@@ -52,6 +52,7 @@ For other container hosts (Fly.io, Cloud Run), use the `Dockerfile` and mount a 
 | `ANTHROPIC_API_KEY` | — | Required for real narration. |
 | `CLAUDE_STORY_MODEL` | `claude-opus-5-5` | Writes the area tours and landmark stories. Each is paid once, then stored. (`CLAUDE_MODEL` still works as an older name for this.) |
 | `CLAUDE_ANSWER_MODEL` | `claude-sonnet-5-5` | Answers follow-up questions, paid on every question. |
+| `FOOD_CITY` | `florence` | `florence`: the app is a Florence guide built on a hand-picked list of 21 restaurants (`florence.js`), sorted by distance when you're in Florence and opened on the Duomo otherwise. `anywhere`: nearby search wherever you are. |
 | `GOOGLE_PLACES_API_KEY` | — | Optional. Google Maps Platform key with the Places API (New) enabled. Adds ratings, prices, open-now and photos. Without it, places come from OpenStreetMap. |
 | `FOOD_WEB_SEARCH` | on | Stories search the web first (what a spot is known for, what people order). Each stored story is paid once. `0` turns it off. |
 | `OVERPASS_URL` | overpass-api.de | OpenStreetMap Overpass endpoint used when there's no Google key. |

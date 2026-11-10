@@ -56,6 +56,7 @@ export function openStore(file) {
   db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
   const getSetting = db.prepare(`SELECT value FROM settings WHERE key = ?`);
   const putSetting = db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`);
+  const setSetting = db.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`);
 
   const getStory = db.prepare(`SELECT * FROM stories WHERE key = ?`);
   const putStory = db.prepare(
@@ -82,6 +83,13 @@ export function openStore(file) {
     persistentSecret(key, make) {
       putSetting.run(key, make());
       return getSetting.get(key).value;
+    },
+    // Small values the app remembers across restarts (e.g. looked-up coordinates).
+    getValue(key) {
+      return getSetting.get(key)?.value ?? null;
+    },
+    setValue(key, value) {
+      setSetting.run(key, value);
     },
     // Returns a cached story unless it's older than maxAgeDays (0 = never expires).
     getStory(key, maxAgeDays = 0) {

@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { openStore } from "./store.js";
 import { describePlace, searchPlace } from "./places.js";
 import { googlePhotoUrl } from "./food.js";
+import { initFlorence, FLORENCE_MODE } from "./florence.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -28,6 +29,7 @@ function hasClaudeCredentials() {
 
 const client = MOCK ? null : new Anthropic();
 const store = openStore(process.env.DB_PATH || path.join(here, "travelbuddy.db"));
+initFlorence(store);
 
 // Bump when the story prompts change, so every area gets fresh cards.
 const STORY_VERSION = "food1";
@@ -86,11 +88,14 @@ function spotLine(l) {
     l.cuisine,
     l.rating != null ? `rated ${l.rating} from ${l.ratingCount ?? "some"} reviews` : null,
     l.price,
-    l.famous ? "has its own Wikipedia article" : null,
+    l.badge || null,
+    l.famous && !l.curated ? "has its own Wikipedia article" : null,
     l.address,
     away,
   ].filter(Boolean).join(", ");
-  return `- ${l.title} (${facts})${l.extract ? `: ${l.extract}` : ""}`;
+  const order = l.order ? ` Known for: ${l.order}` : "";
+  const src = l.sources?.length ? ` (Sources: ${l.sources.map((x) => x.name).join(", ")})` : "";
+  return `- ${l.title} (${facts})${l.extract ? `: ${l.extract}` : ""}${order}${src}`;
 }
 
 function locationContext(place) {
@@ -99,7 +104,9 @@ function locationContext(place) {
     `Coordinates: ${place.lat.toFixed(5)}, ${place.lon.toFixed(5)}`,
   ];
   if (place.spots.length) {
-    lines.push("", `Places to eat within about 1.5 km (from ${place.source === "google" ? "Google Maps" : "OpenStreetMap"}; best and most notable first, chains pushed down):`);
+    lines.push("", place.source === "florence"
+      ? `The hand-picked list of Florence's best places to eat (from the Michelin Guide, Gambero Rosso and Lonely Planet)${place.centered ? "; the reader is not in Florence right now, they're exploring it from afar" : ", nearest to the reader first"}:`
+      : `Places to eat within about 1.5 km (from ${place.source === "google" ? "Google Maps" : "OpenStreetMap"}; best and most notable first, chains pushed down):`);
     for (const l of place.spots) lines.push(spotLine(l));
   } else {
     lines.push("", "No places to eat were found in the map data within 1.5 km.");
@@ -349,7 +356,9 @@ app.get("/api/tour", async (req, res) => {
   const prompt = `${locationContext(place)}
 ${place.areaName ? `\nNeighborhood: ${place.areaName}` : ""}
 
-Tell me the food story of this neighborhood as a set of swipeable story cards for my phone. Other people anywhere in this neighborhood will see the same cards, so describe the area as a whole rather than one street corner.
+${place.source === "florence" && place.areaKey === "city:florence"
+  ? "Tell me the food story of Florence as a set of swipeable story cards for my phone: what Florentines eat and why (bistecca, lampredotto, ribollita and friends), the history behind it, and where on this list to taste it."
+  : "Tell me the food story of this neighborhood as a set of swipeable story cards for my phone. Other people anywhere in this neighborhood will see the same cards, so describe the area as a whole rather than one street corner."}
 ${WEB_SEARCH ? "First, if it helps, search the web for what this neighborhood and town are known for eating and for the stories behind the notable spots above. Then write the cards.\n" : ""}Write 5 to 7 cards. Each card starts on its own line with "## ", then one fitting emoji, then a title of at most 5 words. Under it, write 2 or 3 short sentences (at most 45 words in total).
 Card order: first "what's cooking here" (the food identity of this place in a nutshell), then 2 cards on how it came to eat this way (the communities, history or local produce behind its signature dishes), then 1 or 2 cards each on a standout spot from the list and what to get there, and last a card titled "Don't miss" with the one bite to try here and where.
 Only recommend spots from the list above. Output only the cards, with nothing before the first card.`;
