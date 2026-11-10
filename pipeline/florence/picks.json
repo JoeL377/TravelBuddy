@@ -1,0 +1,895 @@
+[
+ {
+  "slug": "trattoria-sostanza",
+  "name": "Trattoria Sostanza",
+  "kind": "trattoria",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Butter chicken (pollo al burro), artichoke torte",
+  "why": "Most-recommended place in every source: forum regulars, a chef, Reddit.",
+  "people": 10,
+  "evidence": [
+   {
+    "poster": "Claudia",
+    "date": "2026-03-27",
+    "sentiment": "neutral",
+    "quote": "(recommended in a list with Osteria Belle Donne and La Giostra)",
+    "source": "https://community.ricksteves.com/travel-forum/italy/restaurants-in-florence-d317aa06-73f1-4637-90eb-ac3708997c7b"
+   },
+   {
+    "poster": "Jane",
+    "date": "2024-08-13",
+    "sentiment": "pos",
+    "quote": "an amazing combination of quirkiness and excellent food",
+    "source": "https://community.ricksteves.com/travel-forum/trip-reports/a-week-in-florence-june-2024"
+   },
+   {
+    "poster": "Jane",
+    "date": "2025-07-11",
+    "sentiment": "pos",
+    "quote": "Go. You will not regret it.",
+    "source": "https://community.ricksteves.com/travel-forum/tours/florence-restaurant-recommendations-evening-dinner"
+   },
+   {
+    "poster": "bittypeep",
+    "date": "2017-10-01",
+    "sentiment": "pos",
+    "quote": "Their pollo al burro (butter chicken) is delicious",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-and-bar-recommendations"
+   },
+   {
+    "poster": "zcorsair",
+    "date": "2017-10-01",
+    "sentiment": "pos",
+    "quote": "Trattoria Sostanza is hands-down my favorite for Tuscan fare",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-and-bar-recommendations"
+   },
+   {
+    "poster": "drabant6",
+    "date": "2021-12-03",
+    "sentiment": "pos",
+    "quote": "A must not miss is Trattoria Sostanza",
+    "source": "https://community.ricksteves.com/travel-forum/italy-reviews/florence-restaurants-recommendations-we-are-here-now-yippee"
+   },
+   {
+    "poster": "ksinclair",
+    "date": "2022-03-03",
+    "sentiment": "pos",
+    "quote": "old school trattoria, famous for their butter chicken.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-0912350e-9b4d-46f3-bcf0-5dff2df05705"
+   },
+   {
+    "poster": "Susan",
+    "date": "2019-06-27",
+    "sentiment": "pos",
+    "quote": "Do not miss Trattoria Il Sostanza for their fabulous chicken dish.",
+    "source": "https://community.ricksteves.com/travel-forum/italy-reviews/a-couple-of-great-restaurants-in-florence"
+   },
+   {
+    "poster": "rbAA",
+    "date": "2017-09-21",
+    "sentiment": "pos",
+    "quote": "The best was Trattoria Sostanza as the artichokes were great.",
+    "source": "https://www.flyertalk.com/forum/italy/1806076-where-eat-florence-master-thread-7-printerfriendly.html"
+   },
+   {
+    "poster": "Reddit user (via tabiji)",
+    "date": "2022-2026",
+    "sentiment": "pos",
+    "quote": "Sostanza — opened in 1869 and still one of the best in Florence.",
+    "source": "https://tabiji.pages.dev/popular-picks/florence-trattorias"
+   },
+   {
+    "poster": "Karime López (chef)",
+    "date": "2025-10-08",
+    "sentiment": "pos",
+    "quote": "One of our favorite places in Florence. From my heart, I will recommend it.",
+    "source": "https://www.worldofmouth.app/articles/the-best-trattorias-in-florence"
+   }
+  ],
+  "commons_query": "Trattoria Sostanza Firenze"
+ },
+ {
+  "slug": "trattoria-sabatino",
+  "name": "Trattoria Sabatino",
+  "kind": "trattoria",
+  "website": "https://www.trattoriasabatino.it/",
+  "website_verified": false,
+  "known_for": "Pappa al pomodoro, roast meats",
+  "why": "Family-run since 1956 in San Frediano; 'where the locals eat'.",
+  "people": 5,
+  "evidence": [
+   {
+    "poster": "Robert",
+    "date": "2026-09-26",
+    "sentiment": "pos",
+    "quote": "Food was excellent, as always.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/restaurants-in-florence-d317aa06-73f1-4637-90eb-ac3708997c7b"
+   },
+   {
+    "poster": "nancys8",
+    "date": "2026-09-26",
+    "sentiment": "pos",
+    "quote": "no reservations but the line is actually kind of fun",
+    "source": "https://community.ricksteves.com/travel-forum/italy/restaurants-in-florence-d317aa06-73f1-4637-90eb-ac3708997c7b"
+   },
+   {
+    "poster": "Susan",
+    "date": "2026-04-08",
+    "sentiment": "pos",
+    "quote": "Traditional, family owned and operated",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-70a3c5bb-2ddc-44d9-b763-db3c4439db7a"
+   },
+   {
+    "poster": "Robert",
+    "date": "2026-04-08",
+    "sentiment": "pos",
+    "quote": "It's my favorite place in Florence to eat for many reasons.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-70a3c5bb-2ddc-44d9-b763-db3c4439db7a"
+   },
+   {
+    "poster": "u/Due_Flan_699 (Reddit via tabiji)",
+    "date": "2022-2026",
+    "sentiment": "pos",
+    "quote": "Trattoria Sabbatino. Where the locals eat.",
+    "source": "https://tabiji.pages.dev/popular-picks/florence-trattorias"
+   },
+   {
+    "poster": "Kenny Dunn (food tour operator)",
+    "date": "2026-08-19",
+    "sentiment": "pos",
+    "quote": "an eatery where you show up with the possibility of having to sit with others",
+    "source": "https://www.eatingeurope.com/blog/florence-restaurants-locals-actually-go-to/"
+   }
+  ],
+  "commons_query": "Trattoria Sabatino Firenze"
+ },
+ {
+  "slug": "trattoria-mario",
+  "name": "Trattoria Mario",
+  "kind": "trattoria",
+  "website": "https://www.trattoriamario.com/",
+  "website_verified": false,
+  "known_for": "Bistecca alla fiorentina, ribollita",
+  "why": "Lunch-only shared tables by the market; called best value repeatedly.",
+  "people": 5,
+  "evidence": [
+   {
+    "poster": "PWMTrav",
+    "date": "2024-09-20",
+    "sentiment": "pos",
+    "quote": "Two specifically for bistecca alla fiorentina that I really like are osteria dell'enoteca and trattoria mario.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "Perche",
+    "date": "2016",
+    "sentiment": "pos",
+    "quote": "with an unbeatable price to performance ratio",
+    "source": "https://www.flyertalk.com/forum/italy/1806076-where-eat-florence-master-thread.html"
+   },
+   {
+    "poster": "PWMTrav",
+    "date": "2016",
+    "sentiment": "pos",
+    "quote": "Mario is very good, but Gozzi is better, and it gets less ink.",
+    "source": "https://www.flyertalk.com/forum/italy/1806076-where-eat-florence-master-thread.html"
+   },
+   {
+    "poster": "bittypeep",
+    "date": "2017-10-01",
+    "sentiment": "pos",
+    "quote": "the bistecca alla fiorentina at Trattoria Mario is wonderful",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-and-bar-recommendations"
+   },
+   {
+    "poster": "zcorsair",
+    "date": "2017-10-01",
+    "sentiment": "pos",
+    "quote": "Trattoria da Mario arguably is the best value",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-and-bar-recommendations"
+   },
+   {
+    "poster": "u/bultrey (Reddit via tabiji)",
+    "date": "2022-2026",
+    "sentiment": "pos",
+    "quote": "Trattoria Mario is more of a boisterous family-style lunch scene — authentic",
+    "source": "https://tabiji.pages.dev/popular-picks/florence-trattorias"
+   }
+  ],
+  "commons_query": "Trattoria Mario Firenze"
+ },
+ {
+  "slug": "vini-e-vecchi-sapori",
+  "name": "Vini e Vecchi Sapori",
+  "kind": "trattoria",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Pappardelle with duck ragù",
+  "why": "Tiny osteria by Piazza della Signoria; 'our favourite meal in Italy'.",
+  "people": 5,
+  "evidence": [
+   {
+    "poster": "nixit71",
+    "date": "2026-09-26",
+    "sentiment": "neutral",
+    "quote": "(recommended in a list)",
+    "source": "https://community.ricksteves.com/travel-forum/italy/restaurants-in-florence-d317aa06-73f1-4637-90eb-ac3708997c7b"
+   },
+   {
+    "poster": "Dan",
+    "date": "2021-11-22",
+    "sentiment": "pos",
+    "quote": "Don't miss these spots for incredible dinners",
+    "source": "https://community.ricksteves.com/travel-forum/italy-reviews/florence-restaurants-recommendations-we-are-here-now-yippee"
+   },
+   {
+    "poster": "ksinclair",
+    "date": "2022-03-03",
+    "sentiment": "pos",
+    "quote": "hands down our favorite meal in Italy. We still talk about the duck ragu!",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-0912350e-9b4d-46f3-bcf0-5dff2df05705"
+   },
+   {
+    "poster": "Reddit user (via tabiji)",
+    "date": "2022-2026",
+    "sentiment": "pos",
+    "quote": "Vini e Vecchi Sapori — book far, far in advance.",
+    "source": "https://tabiji.pages.dev/popular-picks/florence-trattorias"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "serves some of Florence's finest pasta (pappardelle with duck ragù)",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "Vini e Vecchi Sapori Firenze"
+ },
+ {
+  "slug": "trattoria-sergio-gozzi",
+  "name": "Trattoria Sergio Gozzi",
+  "kind": "trattoria",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Peposo, pici",
+  "why": "Lunch-only San Lorenzo trattoria the FlyerTalk regular rates above Mario.",
+  "people": 3,
+  "evidence": [
+   {
+    "poster": "PWMTrav",
+    "date": "2024-09-20",
+    "sentiment": "pos",
+    "quote": "Go early or you're not eating there that day.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "PWMTrav",
+    "date": "2024",
+    "sentiment": "pos",
+    "quote": "Lunch at Sergio Gozzi is the meal I most look forward to when planning my trip.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-printerfriendly.html?pp=40"
+   },
+   {
+    "poster": "Reddit user (via tabiji)",
+    "date": "2022-2026",
+    "sentiment": "pos",
+    "quote": "the legendary pici pasta is vegetarian and one of the best things I've eaten in Italy.",
+    "source": "https://tabiji.pages.dev/popular-picks/florence-trattorias"
+   },
+   {
+    "poster": "Isabelle Hoyne (writer, lived a month)",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "unwavering commitment to tradition (peposo, pici)",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "Trattoria Sergio Gozzi Firenze"
+ },
+ {
+  "slug": "trattoria-la-casalinga",
+  "name": "Trattoria La Casalinga",
+  "kind": "trattoria",
+  "website": "https://www.trattorialacasalinga.it/",
+  "website_verified": false,
+  "known_for": "Ribollita, daily menu dishes",
+  "why": "Oltrarno family trattoria; one 2017 dissent, recent posts all positive.",
+  "people": 3,
+  "evidence": [
+   {
+    "poster": "PWMTrav",
+    "date": "2024-09-20",
+    "sentiment": "pos",
+    "quote": "La casalinga is also great if you prefer to be in oltrarno",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "kmkwoo",
+    "date": "2025-07-12",
+    "sentiment": "pos",
+    "quote": "It was one of our favorite meals of our trip.",
+    "source": "https://community.ricksteves.com/travel-forum/tours/florence-restaurant-recommendations-evening-dinner"
+   },
+   {
+    "poster": "kmkwoo",
+    "date": "2026-04-08",
+    "sentiment": "pos",
+    "quote": "we had a delicious meal at Casalinga on the Oltrarno side of the river. ... Highly recommend.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-70a3c5bb-2ddc-44d9-b763-db3c4439db7a"
+   },
+   {
+    "poster": "rbAA",
+    "date": "2017-09-21",
+    "sentiment": "neg",
+    "quote": "The most disappointing was Casalinga as the dishes lacked flavor",
+    "source": "https://www.flyertalk.com/forum/italy/1806076-where-eat-florence-master-thread-7-printerfriendly.html"
+   },
+   {
+    "poster": "PWMTrav",
+    "date": "2017-07-03",
+    "sentiment": "pos",
+    "quote": "This is my personal favorite place to eat in the city.",
+    "source": "https://www.flyertalk.com/forum/italy/1806076-where-eat-florence-master-thread-5-printerfriendly.html"
+   }
+  ],
+  "commons_query": "Trattoria La Casalinga Firenze"
+ },
+ {
+  "slug": "antico-ristoro-di-cambi",
+  "name": "Antico Ristoro di Cambi",
+  "kind": "trattoria",
+  "website": "https://www.anticoristorodicambi.it/",
+  "website_verified": false,
+  "known_for": "Bistecca",
+  "why": "Big San Frediano trattoria; 'the bistecca at Cambi is one of the best things I've ever eaten'.",
+  "people": 3,
+  "evidence": [
+   {
+    "poster": "Letizia",
+    "date": "2022-03-03",
+    "sentiment": "pos",
+    "quote": "our favorite spot is All'Antico Ristoro di Cambi.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-0912350e-9b4d-46f3-bcf0-5dff2df05705"
+   },
+   {
+    "poster": "Reddit user (via tabiji)",
+    "date": "2022-2026",
+    "sentiment": "pos",
+    "quote": "The bistecca at Cambi is one of the best things I've ever eaten.",
+    "source": "https://tabiji.pages.dev/popular-picks/florence-trattorias"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "one of San Frediano's most vibrant trattorias",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "Antico Ristoro di Cambi Firenze"
+ },
+ {
+  "slug": "osteria-dell-enoteca",
+  "name": "Osteria dell'Enoteca",
+  "kind": "osteria",
+  "website": "https://www.osteriadellenoteca.com/",
+  "website_verified": false,
+  "known_for": "Bistecca, gnocchi",
+  "why": "Recommended for bistecca by forum regulars in 2017 and 2024.",
+  "people": 3,
+  "evidence": [
+   {
+    "poster": "PWMTrav",
+    "date": "2024-09-20",
+    "sentiment": "pos",
+    "quote": "Two specifically for bistecca alla fiorentina that I really like are osteria dell'enoteca and trattoria mario.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "Prices are reasonable for the quality",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   },
+   {
+    "poster": "sportsguymichael",
+    "date": "2017-07-03",
+    "sentiment": "pos",
+    "quote": "The meal was sensational.",
+    "source": "https://www.flyertalk.com/forum/italy/1806076-where-eat-florence-master-thread-5-printerfriendly.html"
+   }
+  ],
+  "commons_query": "Osteria dell'Enoteca Firenze"
+ },
+ {
+  "slug": "buca-lapi",
+  "name": "Buca Lapi",
+  "kind": "steakhouse",
+  "website": "https://www.bucalapi.com/",
+  "website_verified": false,
+  "known_for": "Bistecca alla fiorentina",
+  "why": "Cellar restaurant under Palazzo Antinori; recommended for steak by a writer and others.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "Hani AlMalki (writer)",
+    "date": "2025-10-08",
+    "sentiment": "pos",
+    "quote": "I loved it and had a phenomenal meal here.",
+    "source": "https://www.worldofmouth.app/articles/the-best-trattorias-in-florence"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "widely considered among Florence's finest (bistecca)",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "Buca Lapi Firenze"
+ },
+ {
+  "slug": "i-brindellone",
+  "name": "I'Brindellone",
+  "kind": "trattoria",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Bistecca, coccoli",
+  "why": "Hard-to-get-into San Frediano trattoria a chef singles out.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "Karime López (chef)",
+    "date": "2025-10-07",
+    "sentiment": "pos",
+    "quote": "It's really, really hard to get a table there",
+    "source": "https://www.worldofmouth.app/articles/the-best-local-restaurants-in-florence"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "a refreshingly transparent approach (bistecca, coccoli)",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "I'Brindellone Firenze"
+ },
+ {
+  "slug": "trattoria-cammillo",
+  "name": "Trattoria Cammillo",
+  "kind": "trattoria",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Fried artichokes, pappardelle",
+  "why": "Oltrarno institution, recommended by forum posters and a food writer.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "JMN57",
+    "date": "2024-09-20",
+    "sentiment": "pos",
+    "quote": "reliably good in my experience.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "João Oliveira (food & wine writer)",
+    "date": "2025-10-08",
+    "sentiment": "pos",
+    "quote": "considered an institution in the city",
+    "source": "https://www.worldofmouth.app/articles/the-best-trattorias-in-florence"
+   }
+  ],
+  "commons_query": "Trattoria Cammillo Firenze"
+ },
+ {
+  "slug": "osteria-santo-spirito",
+  "name": "Osteria Santo Spirito",
+  "kind": "osteria",
+  "website": "https://www.osteriasantospirito.it/",
+  "website_verified": false,
+  "known_for": "Baked gnocchi with truffle cheese",
+  "why": "Lively piazza osteria; 'recommend it to all my friends who visit'.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "Jeff",
+    "date": "2026-04-08",
+    "sentiment": "pos",
+    "quote": "One of my favorite, reasonable restaurants is Osteria Santo Spirito in the Oltrarno",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-70a3c5bb-2ddc-44d9-b763-db3c4439db7a"
+   },
+   {
+    "poster": "Jeff",
+    "date": "2019-03-27",
+    "sentiment": "pos",
+    "quote": "I love Osteria Santo Spirito, not only because the food is tasty",
+    "source": "https://community.ricksteves.com/travel-forum/italy/places-to-eat-in-florence"
+   },
+   {
+    "poster": "Jeff",
+    "date": "2022-03-12",
+    "sentiment": "pos",
+    "quote": "I love Osteria Santo Spirito and recommend it to all my friends who visit the city.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-0912350e-9b4d-46f3-bcf0-5dff2df05705"
+   },
+   {
+    "poster": "Hani AlMalki (writer)",
+    "date": "2025-10-08",
+    "sentiment": "pos",
+    "quote": "Go for the baked gnocchi because it's an awesome dish.",
+    "source": "https://www.worldofmouth.app/articles/the-best-trattorias-in-florence"
+   }
+  ],
+  "commons_query": "Osteria Santo Spirito Firenze"
+ },
+ {
+  "slug": "del-fagioli",
+  "name": "Del Fagioli",
+  "kind": "trattoria",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Bistecca, Tuscan classics",
+  "why": "Santa Croce trattoria; 'one of my favorites', 'the most authentic dinner'.",
+  "people": 3,
+  "evidence": [
+   {
+    "poster": "PWMTrav",
+    "date": "2024-09-20",
+    "sentiment": "pos",
+    "quote": "Del Fagioli is one of my favorites.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "JMN57",
+    "date": "2024-09-20",
+    "sentiment": "pos",
+    "quote": "reliably good in my experience.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "sportsguymichael",
+    "date": "2017-07-03",
+    "sentiment": "pos",
+    "quote": "This seemed to be the most authentic dinner of the three nights",
+    "source": "https://www.flyertalk.com/forum/italy/1806076-where-eat-florence-master-thread-5-printerfriendly.html"
+   }
+  ],
+  "commons_query": "Del Fagioli Firenze"
+ },
+ {
+  "slug": "il-santo-bevitore",
+  "name": "Il Santo Bevitore",
+  "kind": "osteria",
+  "website": "https://www.ilsantobevitore.com/",
+  "website_verified": false,
+  "known_for": "Seasonal Tuscan, squid-ink risotto",
+  "why": "Candlelit Oltrarno favourite from a restaurateur and a writer.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "Saku Tuominen (restaurateur)",
+    "date": "2025-10-08",
+    "sentiment": "pos",
+    "quote": "Cozy, noisy and slightly trendy, semi-modern Tuscan trattoria close to Palazzo Pitti.",
+    "source": "https://www.worldofmouth.app/articles/the-best-trattorias-in-florence"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "it absolutely deserves its popularity",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "Il Santo Bevitore Firenze"
+ },
+ {
+  "slug": "cibreo",
+  "name": "Cibrèo",
+  "kind": "trattoria",
+  "website": "https://www.cibreo.com/",
+  "website_verified": false,
+  "known_for": "Tuscan classics without pasta",
+  "why": "Florence institution; 'one of the best dining experiences I've ever had'.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "Reddit user (via tabiji)",
+    "date": "2022-2026",
+    "sentiment": "pos",
+    "quote": "Trattoria Cibreo in Florence was one of the best dining experiences I've ever had.",
+    "source": "https://tabiji.pages.dev/popular-picks/florence-trattorias"
+   },
+   {
+    "poster": "Saku Tuominen (restaurateur)",
+    "date": "2025-10-08",
+    "sentiment": "pos",
+    "quote": "no visit to Florence is complete without visiting at least one member of the Cibreo family.",
+    "source": "https://www.worldofmouth.app/articles/the-best-trattorias-in-florence"
+   }
+  ],
+  "commons_query": "Cibrèo Firenze"
+ },
+ {
+  "slug": "la-giostra",
+  "name": "La Giostra",
+  "kind": "restaurant",
+  "website": "https://www.ristorantelagiostra.com/",
+  "website_verified": false,
+  "known_for": "Pear ravioli",
+  "why": "Romantic, pricier; praised for pear ravioli, some call it touristy.",
+  "people": 3,
+  "evidence": [
+   {
+    "poster": "Claudia",
+    "date": "2026-03-27",
+    "sentiment": "neutral",
+    "quote": "(recommended in a list)",
+    "source": "https://community.ricksteves.com/travel-forum/italy/restaurants-in-florence-d317aa06-73f1-4637-90eb-ac3708997c7b"
+   },
+   {
+    "poster": "zcorsair",
+    "date": "2017-10-01",
+    "sentiment": "pos",
+    "quote": "Trattoria ZaZa, La Giostra, 13 Gobbi are also solid steak restaurants",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-and-bar-recommendations"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "Actually a genuinely good restaurant (pear ravioli)",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "La Giostra Firenze"
+ },
+ {
+  "slug": "osteria-del-cinghiale-bianco",
+  "name": "Osteria del Cinghiale Bianco",
+  "kind": "osteria",
+  "website": "https://www.cinghialebianco.it/",
+  "website_verified": false,
+  "known_for": "Wild boar",
+  "why": "Oltrarno wild-boar specialist, 'reliably good'.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "JMN57",
+    "date": "2024-09-20",
+    "sentiment": "pos",
+    "quote": "reliably good in my experience.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "nixit71",
+    "date": "2026-09-26",
+    "sentiment": "neutral",
+    "quote": "(recommended in a list)",
+    "source": "https://community.ricksteves.com/travel-forum/italy/restaurants-in-florence-d317aa06-73f1-4637-90eb-ac3708997c7b"
+   }
+  ],
+  "commons_query": "Osteria del Cinghiale Bianco Firenze"
+ },
+ {
+  "slug": "da-nerbone",
+  "name": "Da Nerbone",
+  "kind": "street food",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Lampredotto and bollito panino",
+  "why": "Market stall since 1872; the lampredotto pick of locals and visitors.",
+  "people": 3,
+  "evidence": [
+   {
+    "poster": "PWMTrav",
+    "date": "2024",
+    "sentiment": "pos",
+    "quote": "the better option [for lampredotto] is on the ground floor at Da Nerbone.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-printerfriendly.html?pp=40"
+   },
+   {
+    "poster": "Roberto da Firenze",
+    "date": "2026-04-08",
+    "sentiment": "pos",
+    "quote": "some great quick and cheap eateries like Nerbone.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-70a3c5bb-2ddc-44d9-b763-db3c4439db7a"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "pos",
+    "quote": "the real deal for traditional Florentine street food",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "Da Nerbone Firenze"
+ },
+ {
+  "slug": "all-antico-vinaio",
+  "name": "All'Antico Vinaio",
+  "kind": "street food",
+  "website": "https://www.allanticovinaio.com/",
+  "website_verified": false,
+  "known_for": "Schiacciata sandwiches",
+  "why": "Famous sandwich shop; loved, but queues divide people.",
+  "people": 5,
+  "evidence": [
+   {
+    "poster": "PWMTrav",
+    "date": "2024",
+    "sentiment": "mixed",
+    "quote": "line's gonna be long at regular meal times",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-printerfriendly.html?pp=40"
+   },
+   {
+    "poster": "KimberlySEA",
+    "date": "2019-03-29",
+    "sentiment": "pos",
+    "quote": "For one of the BEST sandwiches you will ever have",
+    "source": "https://community.ricksteves.com/travel-forum/italy/places-to-eat-in-florence"
+   },
+   {
+    "poster": "ksinclair",
+    "date": "2022-03-03",
+    "sentiment": "pos",
+    "quote": "could eat a sandwich from here everyday! So good.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-0912350e-9b4d-46f3-bcf0-5dff2df05705"
+   },
+   {
+    "poster": "Letizia",
+    "date": "2022-03-03",
+    "sentiment": "pos",
+    "quote": "Must Try sandwich",
+    "source": "https://community.ricksteves.com/travel-forum/italy/florence-restaurants-0912350e-9b4d-46f3-bcf0-5dff2df05705"
+   },
+   {
+    "poster": "Isabelle Hoyne",
+    "date": "2025",
+    "sentiment": "neg",
+    "quote": "they're not worth the epic queues",
+    "source": "https://culturedvoyages.com/where-what-to-eat-in-florence/"
+   }
+  ],
+  "commons_query": "All'Antico Vinaio Firenze"
+ },
+ {
+  "slug": "semel",
+  "name": "Semel",
+  "kind": "street food",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Creative panini",
+  "why": "Tiny Sant'Ambrogio panino stand; 'probably the best panini in Tuscany'.",
+  "people": 1,
+  "evidence": [
+   {
+    "poster": "Saku Tuominen (restaurateur)",
+    "date": "2025-10-07",
+    "sentiment": "pos",
+    "quote": "Probably the best panini in the whole of Tuscany can be found in this tiny shop",
+    "source": "https://www.worldofmouth.app/articles/the-best-local-restaurants-in-florence"
+   }
+  ],
+  "commons_query": "Semel Firenze"
+ },
+ {
+  "slug": "il-pizzaiuolo",
+  "name": "Il Pizzaiuolo",
+  "kind": "pizza",
+  "website": "https://www.ilpizzaiuolo.it/",
+  "website_verified": false,
+  "known_for": "Neapolitan pizza",
+  "why": "Pizza pick from forum posters, 'popular with locals'.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "Aloha1",
+    "date": "2024-05-24",
+    "sentiment": "pos",
+    "quote": "For Pizza I like Il Pizzaiuolo",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "offerendum",
+    "date": "2024",
+    "sentiment": "pos",
+    "quote": "There is often a line but as far as I saw not of Americans;) Seems to be very popular by locals.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-printerfriendly.html?pp=40"
+   }
+  ],
+  "commons_query": "Il Pizzaiuolo Firenze"
+ },
+ {
+  "slug": "trattoria-da-rocco",
+  "name": "Trattoria da Rocco",
+  "kind": "market lunch",
+  "website": null,
+  "website_verified": false,
+  "known_for": "Daily Florentine specials, tripe",
+  "why": "Cheap lunch counter inside Sant'Ambrogio market.",
+  "people": 3,
+  "evidence": [
+   {
+    "poster": "nancys8",
+    "date": "2026-09-26",
+    "sentiment": "pos",
+    "quote": "A place in the Sant'Ambrogio market with shared booths",
+    "source": "https://community.ricksteves.com/travel-forum/italy/restaurants-in-florence-d317aa06-73f1-4637-90eb-ac3708997c7b"
+   },
+   {
+    "poster": "Jay",
+    "date": "2026-09-26",
+    "sentiment": "pos",
+    "quote": "We had a wonderful luncheon with him in April of last year.",
+    "source": "https://community.ricksteves.com/travel-forum/italy/restaurants-in-florence-d317aa06-73f1-4637-90eb-ac3708997c7b"
+   },
+   {
+    "poster": "Kenny Dunn (food tour operator)",
+    "date": "2026-08-19",
+    "sentiment": "pos",
+    "quote": "an authentic trattoria popular for a morning meal",
+    "source": "https://www.eatingeurope.com/blog/florence-restaurants-locals-actually-go-to/"
+   }
+  ],
+  "commons_query": "Trattoria da Rocco Firenze"
+ },
+ {
+  "slug": "enoteca-pinchiorri",
+  "name": "Enoteca Pinchiorri",
+  "kind": "fine dining",
+  "website": "https://www.enotecapinchiorri.com/",
+  "website_verified": false,
+  "known_for": "Tasting menu, legendary cellar",
+  "why": "Three Michelin stars; the splurge pick in every forum.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "offerendum",
+    "date": "2024-09-17",
+    "sentiment": "pos",
+    "quote": "If you want something really special take Enoteca.",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "Karime López (chef)",
+    "date": "2025-10-07",
+    "sentiment": "pos",
+    "quote": "One of the most important places for fine wines in Florence",
+    "source": "https://www.worldofmouth.app/articles/the-best-local-restaurants-in-florence"
+   }
+  ],
+  "commons_query": "Enoteca Pinchiorri Firenze"
+ },
+ {
+  "slug": "gucci-osteria-da-massimo-bottura",
+  "name": "Gucci Osteria da Massimo Bottura",
+  "kind": "fine dining",
+  "website": "https://www.gucciosteria.com/",
+  "website_verified": false,
+  "known_for": "Tasting menu",
+  "why": "One Michelin star in Piazza della Signoria; 'good and quite fancy'.",
+  "people": 2,
+  "evidence": [
+   {
+    "poster": "offerendum",
+    "date": "2024-09-17",
+    "sentiment": "pos",
+    "quote": "good and quite fancy",
+    "source": "https://www.flyertalk.com/forum/italy/1977471-dining-recommendations-around-florence-2-printerfriendly.html"
+   },
+   {
+    "poster": "João Oliveira (food & wine writer)",
+    "date": "2025-10-07",
+    "sentiment": "pos",
+    "quote": "this is now Karime and Taka's restaurant, and Bottura must be very proud of it!",
+    "source": "https://www.worldofmouth.app/articles/the-best-local-restaurants-in-florence"
+   }
+  ],
+  "commons_query": "Gucci Osteria da Massimo Bottura Firenze"
+ }
+]
