@@ -13,6 +13,8 @@ export const DUOMO = { lat: 43.77310, lon: 11.25600 };
 // Further than this from the Duomo and you're "not in Florence".
 const IN_CITY_M = 12000;
 
+import { spendPlacesCall } from "./budget.js";
+
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY || "";
 const UA = `TravelBuddy/0.2 (food guide${process.env.CONTACT_EMAIL ? `; ${process.env.CONTACT_EMAIL}` : ""})`;
 
@@ -73,7 +75,8 @@ export const CURATED = [
 
 let store = null;
 const resolved = new Map(); // id -> { lat, lon, google? }
-const LOOKUP_TTL_MS = 24 * 3600_000;
+// Google details (rating, open now, photo references) are refreshed every 3 days.
+const LOOKUP_TTL_MS = 3 * 24 * 3600_000;
 
 export function initFlorence(s) {
   store = s;
@@ -93,7 +96,10 @@ function resolveAll() {
       const r = resolved.get(c.id);
       if (r && (!GOOGLE_KEY || Date.now() - r.at < LOOKUP_TTL_MS)) continue;
       try {
-        const hit = GOOGLE_KEY ? await googleLookup(c) : await geocode(c);
+        // Over today's Google allowance: keep what we have, or fall back to the free geocoder.
+        const useGoogle = GOOGLE_KEY && spendPlacesCall("search");
+        if (GOOGLE_KEY && !useGoogle && r) continue;
+        const hit = useGoogle ? await googleLookup(c) : await geocode(c);
         if (hit) {
           resolved.set(c.id, { ...hit, at: Date.now() });
           // Coordinates and the Google place ID may be kept; other Google data is refreshed.
@@ -107,8 +113,8 @@ function resolveAll() {
   })().finally(() => { resolving = null; });
   return resolving;
 }
-// Refresh Google details once a day.
-setInterval(() => { if (FLORENCE_MODE && GOOGLE_KEY) resolveAll().catch(() => {}); }, 6 * 3600_000).unref();
+// Check twice a day for places whose Google details are due for a refresh.
+setInterval(() => { if (FLORENCE_MODE && GOOGLE_KEY) resolveAll().catch(() => {}); }, 12 * 3600_000).unref();
 
 async function geocode(c) {
   const q = `${c.address}, 50100 Firenze, Italia`;

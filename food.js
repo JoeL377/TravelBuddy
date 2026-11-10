@@ -7,6 +7,8 @@
 // Either way the result is a short, varied list (not ten coffee shops) of
 // "spots" in one shape the rest of the app understands.
 
+import { spendPlacesCall } from "./budget.js";
+
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY || "";
 const OVERPASS_URL = process.env.OVERPASS_URL || "https://overpass-api.de/api/interpreter";
 export const FOOD_SOURCE = GOOGLE_KEY ? "google" : "osm";
@@ -62,6 +64,7 @@ const FIELDS = [
 async function googleSpots(lat, lon) {
   let data;
   for (const includedTypes of GOOGLE_TYPES) {
+    if (!spendPlacesCall("nearby")) throw new Error("daily Places limit reached");
     const res = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_KEY, "X-Goog-FieldMask": FIELDS },
@@ -131,12 +134,14 @@ function cuisineFromGoogle(p, kind = "") {
 }
 
 // Turns a photo reference into a short-lived image URL (no API key in it),
-// so the key never reaches the browser. Cached for an hour per photo.
+// so the key never reaches the browser. Cached for 12 hours per photo, and
+// browsers keep it for a day, so a photo costs at most two calls a day.
 const photoCache = new Map();
 export async function googlePhotoUrl(ref) {
   if (!GOOGLE_KEY || !/^places\/[\w-]+\/photos\/[\w-]+$/.test(ref)) return null;
   const hit = photoCache.get(ref);
-  if (hit && Date.now() - hit.at < 3600_000) return hit.url;
+  if (hit && Date.now() - hit.at < 12 * 3600_000) return hit.url;
+  if (!spendPlacesCall("photo")) return hit?.url || null;
   const res = await fetch(`https://places.googleapis.com/v1/${ref}/media?maxWidthPx=900&skipHttpRedirect=true&key=${encodeURIComponent(GOOGLE_KEY)}`);
   if (!res.ok) throw new Error(`${res.status} from Google Places photos`);
   const { photoUri } = await res.json();

@@ -13,6 +13,7 @@ import { openStore } from "./store.js";
 import { describePlace, searchPlace } from "./places.js";
 import { googlePhotoUrl } from "./food.js";
 import { initFlorence, FLORENCE_MODE } from "./florence.js";
+import { initBudget, placesUsage } from "./budget.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -29,6 +30,7 @@ function hasClaudeCredentials() {
 
 const client = MOCK ? null : new Anthropic();
 const store = openStore(process.env.DB_PATH || path.join(here, "travelbuddy.db"));
+initBudget(store);
 initFlorence(store);
 
 // Bump when the story prompts change, so every area gets fresh cards.
@@ -45,7 +47,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
 
 // For the host's health check.
-app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL, foodSource: process.env.GOOGLE_PLACES_API_KEY ? "google" : "osm", webSearch: WEB_SEARCH }));
+app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL, foodSource: process.env.GOOGLE_PLACES_API_KEY ? "google" : "osm", webSearch: WEB_SEARCH, placesCalls: placesUsage() }));
 app.use(express.json({ limit: "32kb" }));
 
 // --- Abuse limits ---------------------------------------------------------
@@ -430,7 +432,7 @@ app.get("/api/food-photo", async (req, res) => {
   try {
     const url = await googlePhotoUrl(String(req.query.ref || ""));
     if (!url) return res.status(404).end();
-    res.set("Cache-Control", "public, max-age=3600");
+    res.set("Cache-Control", "public, max-age=43200");
     res.redirect(302, url);
   } catch (err) {
     console.error("food photo failed", err.message);
