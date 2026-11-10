@@ -133,6 +133,7 @@ function cuisineFromGoogle(p, kind = "") {
   return kind.toLowerCase().includes(c.toLowerCase()) ? null : c;
 }
 
+// Photos are requested 1600 px wide: sharp full screen on a phone (same price as smaller ones).
 // Turns a photo reference into a short-lived image URL (no API key in it),
 // so the key never reaches the browser. Cached for 12 hours per photo, and
 // browsers keep it for a day, so a photo costs at most two calls a day.
@@ -142,7 +143,7 @@ export async function googlePhotoUrl(ref) {
   const hit = photoCache.get(ref);
   if (hit && Date.now() - hit.at < 12 * 3600_000) return hit.url;
   if (!spendPlacesCall("photo")) return hit?.url || null;
-  const res = await fetch(`https://places.googleapis.com/v1/${ref}/media?maxWidthPx=900&skipHttpRedirect=true&key=${encodeURIComponent(GOOGLE_KEY)}`);
+  const res = await fetch(`https://places.googleapis.com/v1/${ref}/media?maxWidthPx=1600&skipHttpRedirect=true&key=${encodeURIComponent(GOOGLE_KEY)}`);
   if (!res.ok) throw new Error(`${res.status} from Google Places photos`);
   const { photoUri } = await res.json();
   if (photoCache.size > 5000) photoCache.clear();
