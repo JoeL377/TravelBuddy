@@ -210,6 +210,10 @@ export function photoUrl(thumb) {
 // Wikimedia Commons: free, keyless, millions of geotagged photos. Returns photo
 // URLs nearest first; files whose name shares a word with `prefer` come first.
 // With `strict`, a photo that doesn't mention it must be within 60 m.
+// Commons photos near a point include office HQs, event snapshots and people.
+// Skip file names that say so; a tour should show the place, not a lobby.
+const NOT_SIGHTSEEING = /(headquarters|\bhq\b|office|corporate|campus|brewing|company|inc\b|portrait|headshot|\bwith\b|speaking|speech|panel|conference|meeting|interview|selfie|screenshot|interior|lobby|parking|construction|\bsign\b|receipt|menu)/i;
+
 async function commonsPhotos(lat, lon, { radius, limit, prefer = "", strict = false }) {
   const params = new URLSearchParams({
     action: "query",
@@ -234,7 +238,7 @@ async function commonsPhotos(lat, lon, { radius, limit, prefer = "", strict = fa
       const c = p.coordinates?.[0];
       const name = p.title.toLowerCase();
       return {
-        url: ii?.mime === "image/jpeg" && !NOT_A_PHOTO.test(p.title) ? ii.thumburl || ii.url : null,
+        url: ii?.mime === "image/jpeg" && !NOT_A_PHOTO.test(p.title) && !NOT_SIGHTSEEING.test(p.title) ? ii.thumburl || ii.url : null,
         named: words.filter((w) => name.includes(w)).length,
         d: c ? dist(lat, lon, c.lat, c.lon) : radius,
       };
