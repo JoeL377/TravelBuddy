@@ -30,16 +30,23 @@ async function lookup(lat, lon) {
     reverseGeocode(lat, lon).catch(() => null),
     nearbyLandmarks(lat, lon).catch(() => []),
   ]);
-  const [areaImage, areaPhotos] = await Promise.all([
-    geo?.area ? cityImage(geo.area, geo.state).catch(() => null) : null,
-    commonsPhotos(lat, lon, { radius: 1500, limit: 40, prefer: geo?.area }).catch(() => []),
-    // Landmarks whose article has no free lead photo: borrow a Commons photo
-    // taken right at the landmark, preferring one whose file name mentions it.
-    ...landmarks.filter((l) => !l.thumbnail && l.lat != null).map(async (l) => {
-      const [hit] = await commonsPhotos(l.lat, l.lon, { radius: 150, limit: 10, prefer: l.title, strict: true }).catch(() => []);
+  const areaImage = geo?.area ? await cityImage(geo.area, geo.state).catch(() => null) : null;
+  // Wikimedia asks API clients not to fire requests in parallel (and answers
+  // 429 when they do), so Commons lookups run one after another.
+  const areaPhotos = await commonsPhotos(lat, lon, { radius: 1500, limit: 40, prefer: geo?.area }).catch((err) => {
+    console.error("commons area photos failed", err.message);
+    return [];
+  });
+  // Landmarks whose article has no free lead photo: borrow a Commons photo
+  // taken right at the landmark, preferring one whose file name mentions it.
+  for (const l of landmarks.filter((x) => !x.thumbnail && x.lat != null)) {
+    try {
+      const [hit] = await commonsPhotos(l.lat, l.lon, { radius: 150, limit: 10, prefer: l.title, strict: true });
       if (hit) l.thumbnail = hit;
-    }),
-  ]);
+    } catch (err) {
+      console.error("commons landmark photo failed", l.title, err.message);
+    }
+  }
   return {
     label: geo?.label || landmarks[0]?.title || "Somewhere interesting",
     // Lead photo of the town's own Wikipedia article, for the tour cover.
@@ -228,11 +235,11 @@ async function commonsPhotos(lat, lon, { radius, limit, prefer = "", strict = fa
       const name = p.title.toLowerCase();
       return {
         url: ii?.mime === "image/jpeg" && !NOT_A_PHOTO.test(p.title) ? ii.thumburl || ii.url : null,
-        named: words.some((w) => name.includes(w)),
+        named: words.filter((w) => name.includes(w)).length,
         d: c ? dist(lat, lon, c.lat, c.lon) : radius,
       };
     })
-    .filter((x) => x.url && (!strict || x.named || x.d <= 60))
+    .filter((x) => x.url && (!strict || x.named > 0 || x.d <= 60))
     .sort((a, b) => b.named - a.named || a.d - b.d)
     .map((x) => x.url);
 }
