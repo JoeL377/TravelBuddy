@@ -52,10 +52,9 @@ For other container hosts (Fly.io, Cloud Run), use the `Dockerfile` and mount a 
 | `ANTHROPIC_API_KEY` | — | Required for real narration. |
 | `CLAUDE_STORY_MODEL` | `claude-opus-5-5` | Writes the area tours and landmark stories. Each is paid once, then stored. (`CLAUDE_MODEL` still works as an older name for this.) |
 | `CLAUDE_ANSWER_MODEL` | `claude-sonnet-5-5` | Answers follow-up questions, paid on every question. |
-| `FOOD_CITY` | `florence` | `florence`: the app is a Florence guide built on a hand-picked list of 21 restaurants (`florence.js`), sorted by distance when you're in Florence and opened on the Duomo otherwise. `anywhere`: nearby search wherever you are. |
-| `GOOGLE_PLACES_API_KEY` | — | Optional. Google Maps Platform key with the Places API (New) enabled. Adds ratings, prices, open-now and photos. Without it, places come from OpenStreetMap. |
-| `PLACES_DAILY_LIMIT` | `100` | Hard cap on paid Google Places calls per day (UTC), saved across restarts. Past it, the app uses the free data until midnight. Today's count is in `/healthz`. In Florence mode a normal day needs about 50: 21 detail lookups every 3 days, plus at most 2 lookups per photo a day. |
-| `PHOTO_MODEL` | `claude-haiku-5-5` | Scores every Google photo of each Florence restaurant (up to 10) as a cover shot and keeps the best dish. Picks are remembered for 30 days; scoring uses one Places photo call per photo (about 210 for a full pass) but always leaves 25 of the daily limit for visitors, carrying on later if needed. Photos are fetched 1600 px wide. |
+| `FOOD_CITY` | `florence` | `florence`: the app is a Florence guide built on a hand-picked list of 21 restaurants (`florence.js`), sorted by distance when you're in Florence and opened on the Duomo otherwise. Everything about each place is stored with the app, with no paid API: photos go in `public/img/florence/` (see its README). `anywhere`: nearby search wherever you are. |
+| `GOOGLE_PLACES_API_KEY` | — | Optional, `FOOD_CITY=anywhere` only. Google Maps Platform key with the Places API (New) enabled. Adds ratings, prices, open-now and photos. Without it, places come from OpenStreetMap. The Florence guide doesn't use it. |
+| `PLACES_DAILY_LIMIT` | `100` | Hard cap on paid Google Places calls per day (UTC), saved across restarts (`FOOD_CITY=anywhere` only). Past it, the app uses the free data until midnight. Today's count is in `/healthz`. |
 | `FOOD_WEB_SEARCH` | on | Stories search the web first (what a spot is known for, what people order). Each stored story is paid once. `0` turns it off. |
 | `OVERPASS_URL` | overpass-api.de | OpenStreetMap Overpass endpoint used when there's no Google key. |
 | `CLAUDE_EFFORT` | `low` | `low`/`medium`/`high`; higher is slower and richer. |
