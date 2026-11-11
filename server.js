@@ -31,7 +31,7 @@ function hasClaudeCredentials() {
 const client = MOCK ? null : new Anthropic();
 const store = openStore(process.env.DB_PATH || path.join(here, "travelbuddy.db"));
 initBudget(store);
-initFlorence(store, { classify: MOCK ? null : classifyPhoto });
+initFlorence();
 
 // Bump when the story prompts change, so every area gets fresh cards.
 const STORY_VERSION = "food1";
@@ -47,7 +47,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
 
 // For the host's health check.
-app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL, foodSource: process.env.GOOGLE_PLACES_API_KEY ? "google" : "osm", webSearch: WEB_SEARCH, placesCalls: placesUsage(), ...(FLORENCE_MODE ? { florence: florenceStatus() } : {}) }));
+app.get("/healthz", (req, res) => res.json({ ok: true, mode: MOCK ? "demo" : "live", storyModel: STORY_MODEL, answerModel: ANSWER_MODEL, foodSource: FLORENCE_MODE ? "curated" : process.env.GOOGLE_PLACES_API_KEY ? "google" : "osm", webSearch: WEB_SEARCH, placesCalls: placesUsage(), ...(FLORENCE_MODE ? { florence: florenceStatus() } : {}) }));
 app.use(express.json({ limit: "32kb" }));
 
 // --- Abuse limits ---------------------------------------------------------
@@ -292,47 +292,6 @@ function friendlyError(err) {
 }
 
 // --- Food photo check ----------------------------------------------------
-// Says what a restaurant photo shows (a dish, the room, people, a menu...) and
-// scores how good it would look as a full-screen cover. Small and cheap.
-const PHOTO_MODEL = process.env.PHOTO_MODEL || "claude-haiku-5-5";
-
-async function classifyPhoto(url, title) {
-  try {
-    const img = await fetch(url, { signal: AbortSignal.timeout(20_000) });
-    if (!img.ok) throw new Error(`${img.status} fetching photo`);
-    const type = (img.headers.get("content-type") || "image/jpeg").split(";")[0];
-    const data = Buffer.from(await img.arrayBuffer()).toString("base64");
-    const msg = await client.messages.create({
-      model: PHOTO_MODEL,
-      max_tokens: 1000,
-      output_config: { effort: "low" },
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: type, data } },
-          { type: "text", text: `This photo is from the Google Maps listing of ${title}, a restaurant in Florence. We are choosing the cover photo for this restaurant in a food guide app, shown full screen on a phone. We want the most beautiful photo of the food.
-First, say what the photo mainly shows, as one word:
-DISH if a plate or bowl of food is the main subject;
-FOOD if food is visible but small, far away or not the main subject;
-DRINK if a drink or wine is the main subject;
-PLACE if it mostly shows the dining room, building, terrace, kitchen or view;
-PEOPLE if people are the main subject;
-MENU if it shows a menu, sign or text;
-OTHER otherwise.
-Then score it from 1 to 10 as a cover photo: 10 is a sharp, well-lit, close, beautifully plated shot a magazine would print; 5 is a decent phone snapshot; 1 is blurry, dark, cluttered, half-eaten or awkwardly cropped. Take off points for flash glare, harsh shadows, people's hands or faces, watermarks and text overlays.
-Reply in exactly this form: KIND SCORE (for example: DISH 7).` },
-        ],
-      }],
-    }, { timeout: 60_000 });
-    const text = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("").toUpperCase();
-    const m = text.match(/\b(DISH|FOOD|DRINK|PLACE|PEOPLE|MENU|OTHER)\b\D*(10|[1-9])?/);
-    if (!m) return { kind: "OTHER", score: 0 };
-    return { kind: m[1], score: m[2] ? Number(m[2]) : 5 };
-  } catch (err) {
-    console.error("photo check failed", title, err.message);
-    return null; // try again later rather than writing the photo off
-  }
-}
 
 // --- Moderation -----------------------------------------------------------
 // Questions are shown to strangers nearby, so a small, cheap model checks each
