@@ -99,10 +99,11 @@ const status = { lookupErrors: new Map(), pickStopped: null, pickAt: null };
 export function florenceStatus() {
   const withGoogle = CURATED.filter((c) => resolved.get(c.id)?.google).length;
   const picked = CURATED.filter((c) => { const ch = readJson(PICK_KEY(c.id)); return ch && ch.index != null; }).length;
-  return { places: CURATED.length, withGoogle, picked, resolving: !!resolving, picking, pickStopped: status.pickStopped, pickAt: status.pickAt, lookupErrors: Object.fromEntries(status.lookupErrors) };
+  return { places: CURATED.length, googleKey: !!GOOGLE_KEY, lastLookupAt: status.lookupAt, withGoogle, picked, resolving: !!resolving, picking, pickStopped: status.pickStopped, pickAt: status.pickAt, lookupErrors: Object.fromEntries(status.lookupErrors) };
 }
 function resolveAll() {
   resolving ??= (async () => {
+    status.lookupAt = new Date().toISOString();
     for (const c of CURATED) {
       const r = resolved.get(c.id);
       if (r && (!GOOGLE_KEY || (r.google && Date.now() - r.at < LOOKUP_TTL_MS))) continue; // places Google missed are retried at each check
@@ -116,7 +117,7 @@ function resolveAll() {
           // Coordinates and the Google place ID may be kept; other Google data is refreshed.
           store?.setValue(`geo:${c.id}`, JSON.stringify({ lat: hit.lat, lon: hit.lon, placeId: hit.google?.placeId || null }));
         }
-        status.lookupErrors.delete(c.title);
+        if (hit?.google) status.lookupErrors.delete(c.title);
       } catch (err) {
         console.error("florence lookup failed", c.title, err.message);
         status.lookupErrors.set(c.title, err.message.slice(0, 160));
@@ -152,8 +153,14 @@ async function googleLookup(c) {
     body: JSON.stringify({ textQuery: `${c.title}, ${c.address}, Firenze`, maxResultCount: 1, locationBias: { circle: { center: { latitude: DUOMO.lat, longitude: DUOMO.lon }, radius: 15000 } } }),
   });
   if (!res.ok) throw new Error(`${res.status} from Google Places: ${(await res.text()).slice(0, 200)}`);
-  const p = (await res.json()).places?.[0];
-  if (!p?.location) return geocode(c);
+  const body = await res.json();
+  const p = body.places?.[0];
+  if (!p?.location) {
+    // Shown in /healthz, so a key or query problem is visible without the server logs.
+    status.lookupErrors.set(c.title, `no Google match: ${JSON.stringify(body).slice(0, 160)}`);
+    console.warn("no Google match", c.title, JSON.stringify(body).slice(0, 300));
+    return geocode(c);
+  }
   // Prefer the place's own photos, in Google's order; a curated `photo` index can pin a better one.
   const photos = (p.photos || []).slice(0, 10);
   const pick = photos[c.photo ?? 0] || photos[0];
